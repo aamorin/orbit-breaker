@@ -16,11 +16,12 @@ Open `http://localhost:8181` in a browser. On iPhone, use the Mac's local networ
 - Tap while orbiting to launch.
 - Fly into another gravity well's capture ring to keep the run alive.
 - Collect shards for bonus points.
+- Grab rare upgrade cores that appear between planet pairs.
 - Avoid asteroid arcs, unstable planets, missiles, and the collapsing edge.
 
 ## Upgrades
 
-After a high enough score, pick one upgrade for the next run in the current session:
+Upgrades now appear as rare collectible cores on jump paths between planets. Each core shows the upgrade it grants. Collected upgrades persist across retries, but after your Shield is gone, a lethal hit breaks one random installed upgrade before the run can end.
 
 | Upgrade | Effect |
 | --- | --- |
@@ -30,3 +31,9 @@ After a high enough score, pick one upgrade for the next run in the current sess
 | Emergency Blink | One missed capture can snap to a nearby well |
 | Combo Boost | Chain captures are worth more |
 | Shield | Survive one hit or collapse |
+| Stable Orbit | Unstable wells hold longer before failing |
+| Phase Hull | Smaller hazard hitbox |
+| Deep Scan | Upgrade cores appear slightly more often and pulse brighter |
+| Reserve Shield | Shards can recharge a spent Shield once per run |
+| Gravity Lens | Capture rings gently pull the ship near their edge |
+| Star Siphon | Clean captures push the danger edge back |

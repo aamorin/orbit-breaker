@@ -1,7 +1,7 @@
 {
   "name": "Orbit Breaker",
   "short_name": "Orbit Breaker",
-  "description": "One-touch endless orbit runner. Launch between gravity wells, collect shards, and outrun the collapsing starfield.",
+  "description": "One-touch endless orbit runner. Launch between gravity wells, collect shards and upgrade cores, and outrun the collapsing starfield.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

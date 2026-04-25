@@ -15,25 +15,41 @@ const MIN_DANGER_Y = WORLD_H - 142;
 const DANGER_RAMP_MS = 90000;
 const METEOR_START_MS = 12000;
 const METEOR_WARN_MS = 720;
+const METEOR_EARLY_CLEARANCE = 88;
+const METEOR_LATE_CLEARANCE = 42;
+const METEOR_CANDIDATES = 10;
 const PLANET_SPACING_MIN = 224;
 const PLANET_SPACING_MAX = 286;
 const SHARD_VALUE = 16;
 const CLEAN_CAPTURE_BONUS = 24;
 const DISTANCE_SCORE_SCALE = 0.12;
-const MIN_UPGRADE_SCORE = 260;
+const UPGRADE_PICKUP_CHANCE = 0.12;
+const UPGRADE_PICKUP_COOLDOWN_MIN_MS = 9000;
+const UPGRADE_PICKUP_COOLDOWN_MAX_MS = 16000;
+const UPGRADE_PICKUP_GRACE_MS = 4500;
+const UPGRADE_PICKUP_RADIUS = 17;
+const UPGRADE_PICKUP_COLLECT_RADIUS = 31;
+const DAMAGE_GRACE_MS = 850;
+const RESERVE_SHIELD_SHARDS = 4;
 const RECORD_KEY = "ob-best";
 const MUTED_KEY = "ob-muted";
-const VERSION = "0.1.5";
+const VERSION = "0.1.7";
 
 const LANES = [82, 153, 226, 306];
 
 const UPGRADE_POOL = [
-  { id: "wider_capture", name: "Wider Capture", desc: "+18% capture rings" },
-  { id: "slower_collapse", name: "Slow Collapse", desc: "Danger edge falls back" },
-  { id: "shard_magnet", name: "Shard Magnet", desc: "Pull nearby shards" },
-  { id: "emergency_blink", name: "Emergency Blink", desc: "One missed well snaps in" },
-  { id: "combo_boost", name: "Combo Boost", desc: "Bigger chain bonuses" },
-  { id: "shield", name: "Shield", desc: "Survive one hit" },
+  { id: "wider_capture", name: "Wider Capture", desc: "+18% capture rings", color: 0x00e5ff },
+  { id: "slower_collapse", name: "Slow Collapse", desc: "Danger edge falls back", color: 0x8dffca },
+  { id: "shard_magnet", name: "Shard Magnet", desc: "Pull nearby shards", color: 0xffdc4a },
+  { id: "emergency_blink", name: "Emergency Blink", desc: "One missed well snaps in", color: 0xff4fd8 },
+  { id: "combo_boost", name: "Combo Boost", desc: "Bigger chain bonuses", color: 0xff9a3c },
+  { id: "shield", name: "Shield", desc: "Survive one hit", color: 0xf8fdff },
+  { id: "stable_orbit", name: "Stable Orbit", desc: "Unstable wells hold longer", color: 0x9af7ff },
+  { id: "phase_hull", name: "Phase Hull", desc: "Smaller hazard hitbox", color: 0x9c7dff },
+  { id: "deep_scan", name: "Deep Scan", desc: "Find upgrades more often", color: 0x61f4ff },
+  { id: "reserve_shield", name: "Reserve Shield", desc: "Shards can recharge Shield", color: 0xffffff },
+  { id: "gravity_lens", name: "Gravity Lens", desc: "Capture rings pull gently", color: 0x7ea7ff },
+  { id: "star_siphon", name: "Star Siphon", desc: "Clean captures push danger back", color: 0xff4a6d },
 ];
 
 const PLANET_STYLES = [
@@ -100,6 +116,7 @@ class OrbitBreaker extends Phaser.Scene {
     this.mode = "orbit";
     this.planets = [];
     this.shards = [];
+    this.upgradePickups = [];
     this.asteroids = [];
     this.missiles = [];
     this.meteorites = [];
@@ -108,6 +125,7 @@ class OrbitBreaker extends Phaser.Scene {
     this.trail = [];
     this.currentPlanet = null;
     this.captureIgnorePlanet = null;
+    this.lastSpawnedPlanet = null;
     this.hasLaunchedOnce = false;
     this.nextSpawnY = START_PLANET_Y;
     this.lastLane = 1;
@@ -118,9 +136,20 @@ class OrbitBreaker extends Phaser.Scene {
     this.dangerPulseTimer = 0;
     this.missileTimer = 0;
     this.meteorTimer = Phaser.Math.Between(2600, 4200);
+    this.meteoritesSpawned = 0;
+    this.lastMeteoriteEdge = null;
+    this.lastMeteoriteTarget = null;
     this.shootingStarTimer = Phaser.Math.Between(700, 1700);
     this.shieldReady = this.hasUpgrade("shield");
     this.blinkReady = this.hasUpgrade("emergency_blink");
+    this.damageGraceUntil = 0;
+    this.dangerRelief = 0;
+    this.reserveShieldShards = 0;
+    this.reserveShieldUsed = false;
+    this.nextUpgradePickupAt = Phaser.Math.Between(
+      UPGRADE_PICKUP_GRACE_MS,
+      UPGRADE_PICKUP_COOLDOWN_MAX_MS
+    );
     this.awaitingUpgrade = false;
     this.retryReady = false;
     this.muted = this.loadMuted();
@@ -209,7 +238,8 @@ class OrbitBreaker extends Phaser.Scene {
       x: START_PLANET_X,
       y: START_PLANET_Y,
       radius: 33,
-      captureRadius: 88,
+      baseCaptureRadius: 88,
+      captureRadius: this.getCaptureRadius(88),
       orbitRadius: 70,
       orbitSpeed: 1.52,
       style: PLANET_STYLES.find((style) => style.id === "neon_ocean"),
@@ -220,6 +250,7 @@ class OrbitBreaker extends Phaser.Scene {
       asteroid: false,
     });
     this.currentPlanet = start;
+    this.lastSpawnedPlanet = start;
     this.nextSpawnY = START_PLANET_Y - 252;
     this.lastLane = 1;
 
@@ -238,10 +269,7 @@ class OrbitBreaker extends Phaser.Scene {
     this.playerLayer.add(this.shipGlow);
 
     if (this.shieldReady) {
-      this.shieldRing = this.add.circle(this.ship.x, this.ship.y, 28);
-      this.shieldRing.setStrokeStyle(3, 0xffdc4a, 0.9);
-      this.playerLayer.add(this.shieldRing);
-      this.tweens.add({ targets: this.shieldRing, alpha: 0.28, duration: 520, yoyo: true, repeat: -1 });
+      this.ensureShieldRing();
     }
   }
 
@@ -324,19 +352,21 @@ class OrbitBreaker extends Phaser.Scene {
     const pick = this.weightedLane(laneChoices);
     this.lastLane = pick.i;
 
+    const fromPlanet = this.lastSpawnedPlanet;
     const radius = Phaser.Math.Between(22, Math.round(32 - progress * 5));
     const capBase = Phaser.Math.Linear(BASE_CAPTURE_RADIUS, MIN_CAPTURE_RADIUS, progress);
-    const captureRadius = capBase * (this.hasUpgrade("wider_capture") ? 1.18 : 1);
+    const captureRadius = this.getCaptureRadius(capBase);
     const orbitRadius = radius + Phaser.Math.Between(34, 42);
     const orbitSpeed = Phaser.Math.FloatBetween(1.18 + progress * 0.24, 1.72 + progress * 0.38);
     const style = Phaser.Utils.Array.GetRandom(PLANET_STYLES);
     const unstable = this.runElapsed > 18000 && Math.random() < 0.16 + progress * 0.22;
     const asteroid = this.runElapsed > 13000 && Math.random() < 0.18 + progress * 0.26;
 
-    this.spawnPlanet({
+    const planet = this.spawnPlanet({
       x: pick.x + Phaser.Math.Between(-14, 14),
       y: this.nextSpawnY,
       radius,
+      baseCaptureRadius: capBase,
       captureRadius,
       orbitRadius,
       orbitSpeed,
@@ -344,6 +374,8 @@ class OrbitBreaker extends Phaser.Scene {
       unstable,
       asteroid,
     });
+    this.maybeSpawnUpgradePickupBetween(fromPlanet, planet);
+    this.lastSpawnedPlanet = planet;
 
     if (Math.random() < 0.72) {
       this.spawnShard(pick.x + Phaser.Math.Between(-42, 42), this.nextSpawnY + Phaser.Math.Between(74, 116));
@@ -360,10 +392,12 @@ class OrbitBreaker extends Phaser.Scene {
     const primaryColor = config.primaryColor ?? config.color ?? Phaser.Utils.Array.GetRandom(style.primaries);
     const secondaryColor = config.secondaryColor ?? Phaser.Utils.Array.GetRandom(style.secondaries);
     const accentColor = config.accentColor ?? Phaser.Utils.Array.GetRandom(style.accents);
+    const unstableBaseTime = config.unstable ? Phaser.Math.FloatBetween(1.4, 2.1) : Infinity;
     const planet = {
       x: config.x,
       y: config.y,
       radius: config.radius,
+      baseCaptureRadius: config.baseCaptureRadius ?? config.captureRadius,
       captureRadius: config.captureRadius,
       orbitRadius: config.orbitRadius,
       orbitSpeed: config.orbitSpeed,
@@ -372,7 +406,8 @@ class OrbitBreaker extends Phaser.Scene {
       secondaryColor,
       accentColor,
       unstable: config.unstable,
-      unstableTime: config.unstable ? Phaser.Math.FloatBetween(1.4, 2.1) : Infinity,
+      unstableBaseTime,
+      unstableTime: this.getUnstableTime(unstableBaseTime),
       capturedAt: -1,
       depleted: false,
       details: this.createPlanetDetails(style, config.radius),
@@ -630,6 +665,7 @@ class OrbitBreaker extends Phaser.Scene {
     this.updateMode(dt);
     this.updateHazards(dt);
     this.updateShards(dt);
+    this.updateUpgradePickups(dt);
     this.updateTrail(dt);
     this.updatePulses(dt);
     this.updateMissiles(dt);
@@ -659,6 +695,7 @@ class OrbitBreaker extends Phaser.Scene {
         }
       }
     } else {
+      this.applyGravityLens(dt);
       this.ship.x += this.freeVelocity.x * dt;
       this.ship.y += this.freeVelocity.y * dt;
       this.freeVelocity.y += 18 * dt;
@@ -688,6 +725,29 @@ class OrbitBreaker extends Phaser.Scene {
     this.ship.rotation = Math.atan2(direction.y, direction.x) + Math.PI / 2;
   }
 
+  applyGravityLens(dt) {
+    if (!this.hasUpgrade("gravity_lens")) return;
+
+    let best = null;
+    let bestDist = Infinity;
+    for (const planet of this.planets) {
+      if (planet === this.captureIgnorePlanet) continue;
+      const d = Phaser.Math.Distance.Between(this.ship.x, this.ship.y, planet.x, planet.y);
+      const pullRange = planet.captureRadius + 62;
+      if (d >= planet.captureRadius && d < pullRange && d < bestDist) {
+        best = planet;
+        bestDist = d;
+      }
+    }
+
+    if (!best || bestDist <= 1) return;
+
+    const edgeT = 1 - Phaser.Math.Clamp((bestDist - best.captureRadius) / 62, 0, 1);
+    const pull = 98 * edgeT * edgeT;
+    this.freeVelocity.x += ((best.x - this.ship.x) / bestDist) * pull * dt;
+    this.freeVelocity.y += ((best.y - this.ship.y) / bestDist) * pull * dt;
+  }
+
   checkCapture() {
     const planet = this.findNearestPlanet(this.ship.x, this.ship.y, 999);
     if (!planet) return;
@@ -714,6 +774,9 @@ class OrbitBreaker extends Phaser.Scene {
       this.chain = clean ? this.chain + 1 : Math.max(1, this.chain);
       const combo = this.hasUpgrade("combo_boost") ? 1.65 : 1;
       this.bonusScore += Math.round(CLEAN_CAPTURE_BONUS * this.chain * combo);
+      if (clean && this.hasUpgrade("star_siphon")) {
+        this.pushDangerEdgeBack(15);
+      }
     } else {
       this.chain = 0;
     }
@@ -788,7 +851,7 @@ class OrbitBreaker extends Phaser.Scene {
       asteroid.gfx.lineStyle(2, 0xffffff, 0.4);
       asteroid.gfx.strokeCircle(x, y, asteroid.bodyRadius);
 
-      if (Phaser.Math.Distance.Between(this.ship.x, this.ship.y, x, y) < asteroid.bodyRadius + 13) {
+      if (Phaser.Math.Distance.Between(this.ship.x, this.ship.y, x, y) < asteroid.bodyRadius + this.getShipHazardRadius()) {
         this.killPlayer("Asteroid impact");
       }
     }
@@ -817,12 +880,279 @@ class OrbitBreaker extends Phaser.Scene {
 
   collectShard(shard) {
     if (!shard.active) return;
+    const x = shard.x;
+    const y = shard.y;
     shard.destroy();
     const combo = this.hasUpgrade("combo_boost") ? 1.35 : 1;
     this.bonusScore += Math.round(SHARD_VALUE * combo);
-    this.addPulse(shard.x, shard.y, 22, 0xffdc4a);
+    this.addPulse(x, y, 22, 0xffdc4a);
     this.tweens.add({ targets: this.scoreText, scaleX: 1.18, scaleY: 1.18, duration: 70, yoyo: true });
+    this.maybeRechargeReserveShield(x, y);
     this.playSfx("shard");
+  }
+
+  maybeSpawnUpgradePickupBetween(fromPlanet, toPlanet) {
+    if (!fromPlanet || !toPlanet || !this.hasLaunchedOnce) return;
+    if (this.runElapsed < UPGRADE_PICKUP_GRACE_MS || this.runElapsed < this.nextUpgradePickupAt) return;
+    if (this.upgradePickups.some((pickup) => !pickup.collected && pickup.container.active)) return;
+
+    const available = this.getAvailableUpgrades();
+    if (!available.length) return;
+
+    this.nextUpgradePickupAt = this.runElapsed + Phaser.Math.Between(
+      this.hasUpgrade("deep_scan") ? 7000 : UPGRADE_PICKUP_COOLDOWN_MIN_MS,
+      this.hasUpgrade("deep_scan") ? 13000 : UPGRADE_PICKUP_COOLDOWN_MAX_MS
+    );
+
+    const chance = this.hasUpgrade("deep_scan") ? 0.18 : UPGRADE_PICKUP_CHANCE;
+    if (Math.random() > chance) return;
+
+    const placement = this.createUpgradePickupPlacement(fromPlanet, toPlanet);
+    if (!placement) return;
+
+    this.spawnUpgradePickup(
+      placement.x,
+      placement.y,
+      Phaser.Utils.Array.GetRandom(available)
+    );
+  }
+
+  createUpgradePickupPlacement(fromPlanet, toPlanet) {
+    const dx = toPlanet.x - fromPlanet.x;
+    const dy = toPlanet.y - fromPlanet.y;
+    const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+    if (dist < 150) return null;
+
+    const nx = dx / dist;
+    const ny = dy / dist;
+    const px = -ny;
+    const py = nx;
+
+    for (let i = 0; i < 8; i++) {
+      const t = Phaser.Math.FloatBetween(0.38, 0.62);
+      const offset = Phaser.Math.Between(-30, 30);
+      const x = fromPlanet.x + dx * t + px * offset;
+      const y = fromPlanet.y + dy * t + py * offset;
+
+      if (x < 42 || x > WORLD_W - 42) continue;
+      if (y > this.getDangerY() - 86) continue;
+      if (Phaser.Math.Distance.Between(x, y, fromPlanet.x, fromPlanet.y) < fromPlanet.radius + 54) continue;
+      if (Phaser.Math.Distance.Between(x, y, toPlanet.x, toPlanet.y) < toPlanet.radius + 54) continue;
+      if (this.isNearAsteroidOrbit(x, y, fromPlanet) || this.isNearAsteroidOrbit(x, y, toPlanet)) continue;
+
+      return { x, y };
+    }
+
+    return null;
+  }
+
+  isNearAsteroidOrbit(x, y, planet) {
+    return this.asteroids.some((asteroid) => {
+      if (asteroid.planet !== planet) return false;
+      const d = Phaser.Math.Distance.Between(x, y, planet.x, planet.y);
+      return Math.abs(d - asteroid.radius) < asteroid.bodyRadius + UPGRADE_PICKUP_RADIUS + 18;
+    });
+  }
+
+  spawnUpgradePickup(x, y, upgrade) {
+    const color = upgrade.color ?? 0x8dffca;
+    const glow = this.add.circle(0, 0, 29, color, 0.18);
+    const ring = this.add.circle(0, 0, UPGRADE_PICKUP_RADIUS + 5);
+    ring.setStrokeStyle(2, color, 0.92);
+    const core = this.add.circle(0, 0, UPGRADE_PICKUP_RADIUS, color, 0.96);
+    core.setStrokeStyle(2, 0xffffff, 0.72);
+    const label = this.add.text(0, 1, this.getUpgradeGlyph(upgrade.id), {
+      color: "#050712",
+      fontSize: "9px",
+      fontStyle: "900",
+      align: "center",
+    }).setOrigin(0.5);
+    const container = this.add.container(x, y, [glow, ring, core, label]);
+    container.setDepth(10);
+    this.worldLayer.add(container);
+
+    this.upgradePickups.push({
+      x,
+      y,
+      upgradeId: upgrade.id,
+      color,
+      container,
+      glow,
+      ring,
+      phase: Phaser.Math.FloatBetween(0, Math.PI * 2),
+      collected: false,
+    });
+  }
+
+  updateUpgradePickups(dt) {
+    for (const pickup of this.upgradePickups) {
+      if (pickup.collected || !pickup.container.active) continue;
+
+      const scanBoost = this.hasUpgrade("deep_scan") ? 1.45 : 1;
+      const pulse = 1 + Math.sin(this.elapsed * 0.006 + pickup.phase) * 0.1 * scanBoost;
+      pickup.container.setScale(pulse);
+      pickup.ring.alpha = 0.68 + Math.sin(this.elapsed * 0.008 + pickup.phase) * 0.22;
+      pickup.glow.alpha = 0.14 + Math.sin(this.elapsed * 0.007 + pickup.phase) * 0.05 * scanBoost;
+
+      if (Phaser.Math.Distance.Between(this.ship.x, this.ship.y, pickup.x, pickup.y) < UPGRADE_PICKUP_COLLECT_RADIUS) {
+        this.collectUpgradePickup(pickup);
+      }
+    }
+
+    this.upgradePickups = this.upgradePickups.filter((pickup) => !pickup.collected && pickup.container.active);
+  }
+
+  collectUpgradePickup(pickup) {
+    if (pickup.collected) return;
+    const upgrade = this.getUpgradeById(pickup.upgradeId);
+    if (!upgrade) return;
+
+    pickup.collected = true;
+    const x = pickup.x;
+    const y = pickup.y;
+    pickup.container.destroy(true);
+
+    if (!this.activeUpgrades.includes(upgrade.id)) {
+      this.activeUpgrades.push(upgrade.id);
+      this.applyCollectedUpgrade(upgrade.id);
+      this.refreshUpgradeText();
+    }
+
+    this.addPulse(x, y, 42, upgrade.color ?? 0x8dffca);
+    this.showFloatingLabel(upgrade.name, x, y - 24, upgrade.color ?? 0x8dffca);
+    this.tweens.add({ targets: this.scoreText, scaleX: 1.15, scaleY: 1.15, duration: 80, yoyo: true });
+    this.playSfx("upgrade");
+  }
+
+  getAvailableUpgrades() {
+    return UPGRADE_POOL.filter((upgrade) => {
+      if (this.activeUpgrades.includes(upgrade.id)) return false;
+      return !this.upgradePickups.some((pickup) => !pickup.collected && pickup.upgradeId === upgrade.id);
+    });
+  }
+
+  getUpgradeById(id) {
+    return UPGRADE_POOL.find((upgrade) => upgrade.id === id);
+  }
+
+  getUpgradeGlyph(id) {
+    const glyphs = {
+      wider_capture: "WC",
+      slower_collapse: "SC",
+      shard_magnet: "SM",
+      emergency_blink: "EB",
+      combo_boost: "CB",
+      shield: "SH",
+      stable_orbit: "SO",
+      phase_hull: "PH",
+      deep_scan: "DS",
+      reserve_shield: "RS",
+      gravity_lens: "GL",
+      star_siphon: "SS",
+    };
+    return glyphs[id] || "UP";
+  }
+
+  applyCollectedUpgrade(id) {
+    if (id === "shield") {
+      this.shieldReady = true;
+      this.reserveShieldShards = 0;
+      this.ensureShieldRing();
+    }
+
+    if (id === "emergency_blink") {
+      this.blinkReady = true;
+    }
+
+    if (id === "wider_capture") {
+      this.updatePlanetCaptureRadii();
+    }
+
+    if (id === "stable_orbit") {
+      this.updatePlanetUnstableTimes();
+    }
+
+    if (id === "reserve_shield") {
+      this.reserveShieldShards = 0;
+      this.reserveShieldUsed = false;
+    }
+  }
+
+  applyLostUpgrade(id) {
+    if (id === "shield") {
+      this.shieldReady = false;
+      this.shieldRing?.destroy();
+      this.shieldRing = null;
+      this.reserveShieldShards = 0;
+    }
+
+    if (id === "emergency_blink") {
+      this.blinkReady = false;
+    }
+
+    if (id === "wider_capture") {
+      this.updatePlanetCaptureRadii();
+    }
+
+    if (id === "stable_orbit") {
+      this.updatePlanetUnstableTimes();
+    }
+
+    if (id === "reserve_shield") {
+      this.reserveShieldShards = 0;
+      this.reserveShieldUsed = false;
+    }
+  }
+
+  updatePlanetCaptureRadii() {
+    for (const planet of this.planets) {
+      planet.captureRadius = this.getCaptureRadius(planet.baseCaptureRadius);
+      this.redrawPlanet(planet);
+    }
+  }
+
+  updatePlanetUnstableTimes() {
+    for (const planet of this.planets) {
+      if (!planet.unstable) continue;
+      planet.unstableTime = this.getUnstableTime(planet.unstableBaseTime);
+    }
+  }
+
+  maybeRechargeReserveShield(x, y) {
+    if (!this.hasUpgrade("reserve_shield")) return;
+    if (!this.hasUpgrade("shield") || this.shieldReady || this.reserveShieldUsed) return;
+
+    this.reserveShieldShards += 1;
+    if (this.reserveShieldShards < RESERVE_SHIELD_SHARDS) return;
+
+    this.reserveShieldUsed = true;
+    this.reserveShieldShards = 0;
+    this.shieldReady = true;
+    this.ensureShieldRing();
+    this.addPulse(x, y, 44, 0xffffff);
+    this.showFloatingLabel("SHIELD RECHARGED", x, y - 24, 0xffffff);
+    this.playSfx("shield");
+  }
+
+  showFloatingLabel(text, x, y, color) {
+    const textColor = color ?? 0xffffff;
+    const label = this.add.text(x, y, text, {
+      color: `#${textColor.toString(16).padStart(6, "0")}`,
+      fontSize: "13px",
+      fontStyle: "900",
+      align: "center",
+      stroke: "#050712",
+      strokeThickness: 4,
+    }).setOrigin(0.5);
+    this.fxLayer.add(label);
+    this.tweens.add({
+      targets: label,
+      y: y - 34,
+      alpha: 0,
+      duration: 820,
+      ease: "Sine.easeOut",
+      onComplete: () => label.destroy(),
+    });
   }
 
   maybeSpawnMissile(delta) {
@@ -868,7 +1198,7 @@ class OrbitBreaker extends Phaser.Scene {
       missile.body.lineStyle(2, 0xffffff, 0.4);
       missile.body.strokeCircle(missile.x, missile.y, 13);
 
-      if (Phaser.Math.Distance.Between(this.ship.x, this.ship.y, missile.x, missile.y) < 26) {
+      if (Phaser.Math.Distance.Between(this.ship.x, this.ship.y, missile.x, missile.y) < 13 + this.getShipHazardRadius()) {
         this.killPlayer("Missile strike");
       }
     }
@@ -879,14 +1209,73 @@ class OrbitBreaker extends Phaser.Scene {
     if (this.meteorTimer > 0) return;
 
     const progress = this.getDifficulty();
-    this.meteorTimer = Math.max(1900, Phaser.Math.Between(5200, 7600) - progress * 2700);
+    this.meteorTimer = this.getMeteoriteDelay(progress);
     this.spawnMeteorite(progress);
   }
 
+  getMeteoriteDelay(progress) {
+    const baseDelay = Phaser.Math.Between(5200, 7600) - progress * 2700;
+    const earlyPadding = this.meteoritesSpawned < 3 ? Phaser.Math.Between(650, 1100) : 0;
+    return Math.max(this.meteoritesSpawned < 3 ? 3300 : 1900, baseDelay + earlyPadding);
+  }
+
   spawnMeteorite(progress) {
-    const edge = Phaser.Math.Between(0, 2);
-    const targetX = Phaser.Math.Clamp(this.ship.x + Phaser.Math.Between(-95, 95), 46, WORLD_W - 46);
-    const targetY = Phaser.Math.Clamp(this.ship.y + Phaser.Math.Between(-150, 120), 96, WORLD_H - 210);
+    const minClearance = Phaser.Math.Linear(METEOR_EARLY_CLEARANCE, METEOR_LATE_CLEARANCE, progress);
+    const candidates = [];
+
+    for (let i = 0; i < METEOR_CANDIDATES; i++) {
+      candidates.push(this.createMeteoriteCandidate(progress));
+    }
+
+    const safeCandidates = candidates.filter((candidate) => candidate.clearance >= minClearance);
+    const pool = safeCandidates.length > 0 ? safeCandidates : candidates;
+    pool.sort((a, b) => b.score - a.score);
+    const meteorite = pool[Phaser.Math.Between(0, Math.min(3, pool.length - 1))];
+    const { edge, startX, startY, targetX, targetY } = meteorite;
+    const dx = targetX - startX;
+    const dy = targetY - startY;
+    const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+    const speed = Phaser.Math.FloatBetween(230, 295) + progress * 115;
+    const warnBonus = Math.round(Phaser.Math.Linear(220, 0, progress));
+
+    meteorite.x = startX;
+    meteorite.y = startY;
+    meteorite.vx = (dx / dist) * speed;
+    meteorite.vy = (dy / dist) * speed;
+    meteorite.dirX = dx / dist;
+    meteorite.dirY = dy / dist;
+    meteorite.warnMs = METEOR_WARN_MS + warnBonus;
+    meteorite.bodyRadius = Phaser.Math.Between(11, 15);
+    meteorite.warning = this.add.graphics();
+    meteorite.body = this.add.graphics();
+    meteorite.done = false;
+
+    this.lastMeteoriteEdge = edge;
+    this.lastMeteoriteTarget = { x: targetX, y: targetY };
+    this.meteoritesSpawned += 1;
+    this.worldLayer.add([meteorite.warning, meteorite.body]);
+    this.meteorites.push(meteorite);
+    this.playSfx("warning");
+  }
+
+  createMeteoriteCandidate(progress) {
+    const edge = this.pickMeteoriteEdge();
+    const targetX = Phaser.Math.Clamp(
+      this.ship.x + Phaser.Math.Between(
+        -Math.round(Phaser.Math.Linear(145, 95, progress)),
+        Math.round(Phaser.Math.Linear(145, 95, progress))
+      ),
+      46,
+      WORLD_W - 46
+    );
+    const targetY = Phaser.Math.Clamp(
+      this.ship.y + Phaser.Math.Between(
+        -Math.round(Phaser.Math.Linear(190, 150, progress)),
+        Math.round(Phaser.Math.Linear(165, 120, progress))
+      ),
+      96,
+      WORLD_H - 210
+    );
     let startX = 0;
     let startY = 0;
 
@@ -901,30 +1290,48 @@ class OrbitBreaker extends Phaser.Scene {
       startY = Phaser.Math.Between(80, WORLD_H - 260);
     }
 
-    const dx = targetX - startX;
-    const dy = targetY - startY;
-    const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy));
-    const speed = Phaser.Math.FloatBetween(230, 295) + progress * 115;
-    const meteorite = {
-      x: startX,
-      y: startY,
+    const clearance = this.distanceToSegment(this.ship.x, this.ship.y, startX, startY, targetX, targetY);
+    const targetGap = this.lastMeteoriteTarget
+      ? Phaser.Math.Distance.Between(targetX, targetY, this.lastMeteoriteTarget.x, this.lastMeteoriteTarget.y)
+      : 180;
+    const edgePenalty = edge === this.lastMeteoriteEdge ? 24 : 0;
+
+    return {
+      edge,
       startX,
       startY,
       targetX,
       targetY,
-      vx: (dx / dist) * speed,
-      vy: (dy / dist) * speed,
-      dirX: dx / dist,
-      dirY: dy / dist,
-      warnMs: METEOR_WARN_MS,
-      bodyRadius: Phaser.Math.Between(11, 15),
-      warning: this.add.graphics(),
-      body: this.add.graphics(),
-      done: false,
+      clearance,
+      score: clearance + Math.min(targetGap, 180) * 0.22 - edgePenalty + Math.random() * 8,
     };
-    this.worldLayer.add([meteorite.warning, meteorite.body]);
-    this.meteorites.push(meteorite);
-    this.playSfx("warning");
+  }
+
+  pickMeteoriteEdge() {
+    if (this.lastMeteoriteEdge === null) return Phaser.Math.Between(0, 2);
+
+    const edges = [
+      { edge: 0, weight: this.lastMeteoriteEdge === 0 ? 0.28 : 1 },
+      { edge: 1, weight: this.lastMeteoriteEdge === 1 ? 0.28 : 1 },
+      { edge: 2, weight: this.lastMeteoriteEdge === 2 ? 0.28 : 1 },
+    ];
+    const total = edges.reduce((sum, entry) => sum + entry.weight, 0);
+    let roll = Math.random() * total;
+    for (const entry of edges) {
+      roll -= entry.weight;
+      if (roll <= 0) return entry.edge;
+    }
+    return edges[edges.length - 1].edge;
+  }
+
+  distanceToSegment(px, py, ax, ay, bx, by) {
+    const dx = bx - ax;
+    const dy = by - ay;
+    const lenSq = dx * dx + dy * dy;
+    if (lenSq <= 0) return Phaser.Math.Distance.Between(px, py, ax, ay);
+
+    const t = Phaser.Math.Clamp(((px - ax) * dx + (py - ay) * dy) / lenSq, 0, 1);
+    return Phaser.Math.Distance.Between(px, py, ax + dx * t, ay + dy * t);
   }
 
   updateMeteorites(dt) {
@@ -940,9 +1347,9 @@ class OrbitBreaker extends Phaser.Scene {
       meteorite.y += meteorite.vy * dt;
       this.drawMeteorite(meteorite);
 
-      if (Phaser.Math.Distance.Between(this.ship.x, this.ship.y, meteorite.x, meteorite.y) < meteorite.bodyRadius + 14) {
-        if (this.shieldReady) meteorite.done = true;
-        this.killPlayer("Meteorite impact");
+      if (Phaser.Math.Distance.Between(this.ship.x, this.ship.y, meteorite.x, meteorite.y) < meteorite.bodyRadius + this.getShipHazardRadius()) {
+        const result = this.killPlayer("Meteorite impact");
+        if (result === "shield" || result === "upgrade" || result === "ignored") meteorite.done = true;
       }
 
       if (
@@ -1200,6 +1607,12 @@ class OrbitBreaker extends Phaser.Scene {
     for (const shard of this.shards) {
       if (shard.active) shard.y += scroll;
     }
+
+    for (const pickup of this.upgradePickups) {
+      if (!pickup.container.active) continue;
+      pickup.y += scroll;
+      pickup.container.y += scroll;
+    }
   }
 
   recycleWorld() {
@@ -1223,6 +1636,13 @@ class OrbitBreaker extends Phaser.Scene {
       return false;
     });
 
+    this.upgradePickups = this.upgradePickups.filter((pickup) => {
+      if (pickup.collected || !pickup.container.active) return false;
+      if (pickup.y < WORLD_H + 90) return true;
+      pickup.container.destroy(true);
+      return false;
+    });
+
     this.asteroids = this.asteroids.filter((asteroid) => {
       if (this.planets.includes(asteroid.planet)) return true;
       asteroid.gfx.destroy();
@@ -1238,19 +1658,61 @@ class OrbitBreaker extends Phaser.Scene {
     });
   }
 
+  ensureShieldRing() {
+    if (!this.ship || this.shieldRing) return;
+    this.shieldRing = this.add.circle(this.ship.x, this.ship.y, 28);
+    this.shieldRing.setStrokeStyle(3, 0xffdc4a, 0.9);
+    this.playerLayer.add(this.shieldRing);
+    this.tweens.add({ targets: this.shieldRing, alpha: 0.28, duration: 520, yoyo: true, repeat: -1 });
+  }
+
+  spendShield() {
+    this.shieldReady = false;
+    this.damageGraceUntil = this.elapsed + DAMAGE_GRACE_MS;
+    this.shieldRing?.destroy();
+    this.shieldRing = null;
+    this.cameras.main.shake(220, 0.016);
+    this.ship.setTint(0xffdc4a);
+    this.time.delayedCall(360, () => {
+      if (!this.isDead) this.ship.clearTint();
+    });
+    this.addPulse(this.ship.x, this.ship.y, 46, 0xffdc4a);
+    this.playSfx("shield");
+    return "shield";
+  }
+
+  breakRandomUpgrade(reason) {
+    if (!this.activeUpgrades.length) return false;
+
+    const index = Phaser.Math.Between(0, this.activeUpgrades.length - 1);
+    const id = this.activeUpgrades[index];
+    const upgrade = this.getUpgradeById(id);
+    this.activeUpgrades.splice(index, 1);
+    this.applyLostUpgrade(id);
+    this.refreshUpgradeText();
+
+    this.damageGraceUntil = this.elapsed + DAMAGE_GRACE_MS;
+    this.cameras.main.shake(190, 0.013);
+    this.ship.setTint(0xff9a3c);
+    this.time.delayedCall(320, () => {
+      if (!this.isDead) this.ship.clearTint();
+    });
+    this.addPulse(this.ship.x, this.ship.y, 48, upgrade?.color ?? 0xff9a3c);
+    this.showFloatingLabel(`${upgrade?.name || "UPGRADE"} BROKEN`, this.ship.x, this.ship.y - 28, upgrade?.color ?? 0xff9a3c);
+    this.playSfx("break");
+    return true;
+  }
+
   killPlayer(reason) {
-    if (this.isDead || this.isGameOver) return;
+    if (this.isDead || this.isGameOver) return "dead";
+    if (this.elapsed < this.damageGraceUntil) return "ignored";
 
     if (this.shieldReady) {
-      this.shieldReady = false;
-      this.shieldRing?.destroy();
-      this.shieldRing = null;
-      this.cameras.main.shake(220, 0.016);
-      this.ship.setTint(0xffdc4a);
-      this.time.delayedCall(360, () => this.ship.clearTint());
-      this.addPulse(this.ship.x, this.ship.y, 46, 0xffdc4a);
-      this.playSfx("shield");
-      return;
+      return this.spendShield();
+    }
+
+    if (this.breakRandomUpgrade(reason)) {
+      return "upgrade";
     }
 
     this.isDead = true;
@@ -1263,6 +1725,7 @@ class OrbitBreaker extends Phaser.Scene {
     this.tweens.add({ targets: this.ship, scaleX: 1.6, scaleY: 0.25, duration: 170, ease: "Back.easeIn" });
     this.playSfx("death");
     this.time.delayedCall(620, () => this.showGameOver(finalScore, newBest, reason));
+    return "death";
   }
 
   showGameOver(finalScore, newBest, reason) {
@@ -1291,98 +1754,24 @@ class OrbitBreaker extends Phaser.Scene {
 
     this.overlayLayer.add([veil, title, score, why]);
     this.awaitingUpgrade = false;
-    this.retryReady = false;
+    this.retryReady = true;
 
-    if (finalScore < MIN_UPGRADE_SCORE) {
-      const need = MIN_UPGRADE_SCORE - finalScore;
-      const msg = this.add.text(WORLD_W / 2, WORLD_H * 0.43, `Need ${need} more for upgrades`, {
-        color: "#6d8fb8",
-        fontSize: "17px",
-        fontStyle: "800",
-      }).setOrigin(0.5);
-      const retry = this.add.text(WORLD_W / 2, WORLD_H * 0.56, "TAP TO RETRY", {
-        color: "#ff4fd8",
-        fontSize: "20px",
-        fontStyle: "900",
-        stroke: "#050712",
-        strokeThickness: 5,
-      }).setOrigin(0.5);
-      this.overlayLayer.add([msg, retry]);
-      this.retryReady = true;
-      return;
-    }
-
-    const available = UPGRADE_POOL.filter((upgrade) => !this.activeUpgrades.includes(upgrade.id));
-    Phaser.Utils.Array.Shuffle(available);
-    const picks = available.slice(0, Math.min(3, available.length));
-
-    if (!picks.length) {
-      const maxed = this.add.text(WORLD_W / 2, WORLD_H * 0.48, "ALL SYSTEMS MAXED\nTAP TO RETRY", {
-        color: "#9af7ff",
-        fontSize: "21px",
-        fontStyle: "900",
-        align: "center",
-        stroke: "#050712",
-        strokeThickness: 5,
-      }).setOrigin(0.5);
-      this.overlayLayer.add(maxed);
-      this.awaitingUpgrade = false;
-      this.retryReady = true;
-      return;
-    }
-
-    const pick = this.add.text(WORLD_W / 2, 186, "PICK NEXT RUN UPGRADE", {
-      color: "#8dffca",
-      fontSize: "14px",
+    const held = this.activeUpgrades.length
+      ? `${this.activeUpgrades.length} systems online`
+      : "No upgrades installed";
+    const msg = this.add.text(WORLD_W / 2, WORLD_H * 0.43, held, {
+      color: this.activeUpgrades.length ? "#8dffca" : "#6d8fb8",
+      fontSize: "17px",
+      fontStyle: "800",
+    }).setOrigin(0.5);
+    const retry = this.add.text(WORLD_W / 2, WORLD_H * 0.56, "TAP TO RETRY", {
+      color: "#ff4fd8",
+      fontSize: "20px",
       fontStyle: "900",
       stroke: "#050712",
-      strokeThickness: 4,
+      strokeThickness: 5,
     }).setOrigin(0.5);
-    this.overlayLayer.add(pick);
-    this.awaitingUpgrade = true;
-
-    const cardW = 312;
-    const cardH = 82;
-    const startY = 238;
-    const gap = 96;
-
-    picks.forEach((upgrade, i) => {
-      const y = startY + i * gap;
-      const card = this.add.rectangle(WORLD_W / 2, y, cardW, cardH, 0x0d1b30, 1)
-        .setStrokeStyle(2, 0x00e5ff, 0.85)
-        .setInteractive({ useHandCursor: true });
-      const name = this.add.text(WORLD_W / 2, y - 18, upgrade.name, {
-        color: "#f8fdff",
-        fontSize: "18px",
-        fontStyle: "900",
-      }).setOrigin(0.5);
-      const desc = this.add.text(WORLD_W / 2, y + 13, upgrade.desc, {
-        color: "#8fb7d9",
-        fontSize: "14px",
-        fontStyle: "700",
-      }).setOrigin(0.5);
-
-      card.on("pointerover", () => card.setFillStyle(0x112945));
-      card.on("pointerout", () => card.setFillStyle(0x0d1b30));
-      card.on("pointerdown", (_pointer, _x, _y, event) => {
-        event?.stopPropagation();
-        this.playSfx("upgrade");
-        this.scene.restart({ upgrades: [...this.activeUpgrades, upgrade.id] });
-      });
-
-      this.overlayLayer.add([card, name, desc]);
-    });
-
-    const skip = this.add.text(WORLD_W / 2, startY + picks.length * gap + 10, "SKIP", {
-      color: "#6d8fb8",
-      fontSize: "15px",
-      fontStyle: "900",
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-    skip.on("pointerdown", (_pointer, _x, _y, event) => {
-      event?.stopPropagation();
-      this.scene.restart({ upgrades: this.activeUpgrades });
-    });
-    this.overlayLayer.add(skip);
+    this.overlayLayer.add([msg, retry]);
   }
 
   getScrollSpeed() {
@@ -1393,7 +1782,8 @@ class OrbitBreaker extends Phaser.Scene {
   getDangerY() {
     const t = Math.min(this.runElapsed / DANGER_RAMP_MS, 1);
     const base = Phaser.Math.Linear(BASE_DANGER_Y, MIN_DANGER_Y, t);
-    return this.hasUpgrade("slower_collapse") ? Math.min(WORLD_H - 18, base + 64) : base;
+    const slowed = this.hasUpgrade("slower_collapse") ? base + 64 : base;
+    return Math.min(WORLD_H - 18, slowed + this.dangerRelief);
   }
 
   getDifficulty() {
@@ -1406,6 +1796,22 @@ class OrbitBreaker extends Phaser.Scene {
 
   hasUpgrade(id) {
     return this.activeUpgrades.includes(id);
+  }
+
+  getCaptureRadius(base) {
+    return base * (this.hasUpgrade("wider_capture") ? 1.18 : 1);
+  }
+
+  getUnstableTime(base) {
+    return this.hasUpgrade("stable_orbit") ? base * 1.65 : base;
+  }
+
+  getShipHazardRadius() {
+    return this.hasUpgrade("phase_hull") ? 9.5 : 13;
+  }
+
+  pushDangerEdgeBack(amount) {
+    this.dangerRelief = Math.min(92, this.dangerRelief + amount);
   }
 
   refreshUpgradeText() {
@@ -1490,6 +1896,7 @@ class OrbitBreaker extends Phaser.Scene {
       blink: [300, 920, 0.2],
       shield: [240, 620, 0.22],
       upgrade: [420, 980, 0.2],
+      break: [560, 180, 0.24],
       death: [180, 55, 0.34],
     };
     const [a, b, dur] = map[type] || map.launch;
