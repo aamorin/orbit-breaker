@@ -33,23 +33,78 @@ const DAMAGE_GRACE_MS = 850;
 const RESERVE_SHIELD_SHARDS = 4;
 const RECORD_KEY = "ob-best";
 const MUTED_KEY = "ob-muted";
-const VERSION = "0.1.7";
+const VERSION = "0.1.8";
 
 const LANES = [82, 153, 226, 306];
 
 const UPGRADE_POOL = [
-  { id: "wider_capture", name: "Wider Capture", desc: "+18% capture rings", color: 0x00e5ff },
-  { id: "slower_collapse", name: "Slow Collapse", desc: "Danger edge falls back", color: 0x8dffca },
-  { id: "shard_magnet", name: "Shard Magnet", desc: "Pull nearby shards", color: 0xffdc4a },
-  { id: "emergency_blink", name: "Emergency Blink", desc: "One missed well snaps in", color: 0xff4fd8 },
-  { id: "combo_boost", name: "Combo Boost", desc: "Bigger chain bonuses", color: 0xff9a3c },
+  {
+    id: "wider_capture",
+    name: "Wider Capture",
+    desc: "+18% capture rings",
+    color: 0x00e5ff,
+  },
+  {
+    id: "slower_collapse",
+    name: "Slow Collapse",
+    desc: "Danger edge falls back",
+    color: 0x8dffca,
+  },
+  {
+    id: "shard_magnet",
+    name: "Shard Magnet",
+    desc: "Pull nearby shards",
+    color: 0xffdc4a,
+  },
+  {
+    id: "emergency_blink",
+    name: "Emergency Blink",
+    desc: "One missed well snaps in",
+    color: 0xff4fd8,
+  },
+  {
+    id: "combo_boost",
+    name: "Combo Boost",
+    desc: "Bigger chain bonuses",
+    color: 0xff9a3c,
+  },
   { id: "shield", name: "Shield", desc: "Survive one hit", color: 0xf8fdff },
-  { id: "stable_orbit", name: "Stable Orbit", desc: "Unstable wells hold longer", color: 0x9af7ff },
-  { id: "phase_hull", name: "Phase Hull", desc: "Smaller hazard hitbox", color: 0x9c7dff },
-  { id: "deep_scan", name: "Deep Scan", desc: "Find upgrades more often", color: 0x61f4ff },
-  { id: "reserve_shield", name: "Reserve Shield", desc: "Shards can recharge Shield", color: 0xffffff },
-  { id: "gravity_lens", name: "Gravity Lens", desc: "Capture rings pull gently", color: 0x7ea7ff },
-  { id: "star_siphon", name: "Star Siphon", desc: "Clean captures push danger back", color: 0xff4a6d },
+  {
+    id: "stable_orbit",
+    name: "Stable Orbit",
+    desc: "Unstable wells hold longer",
+    color: 0x9af7ff,
+  },
+  {
+    id: "phase_hull",
+    name: "Phase Hull",
+    desc: "Smaller hazard hitbox",
+    color: 0x9c7dff,
+  },
+  {
+    id: "deep_scan",
+    name: "Deep Scan",
+    desc: "Find upgrades more often",
+    color: 0x61f4ff,
+  },
+  {
+    id: "reserve_shield",
+    name: "Reserve Shield",
+    desc: "Shards can recharge Shield",
+    color: 0xffffff,
+  },
+  {
+    id: "gravity_lens",
+    name: "Gravity Lens",
+    desc: "Capture rings pull gently",
+    color: 0x7ea7ff,
+  },
+  {
+    id: "star_siphon",
+    name: "Star Siphon",
+    desc: "Clean captures push danger back",
+    color: 0xff4a6d,
+  },
 ];
 
 const PLANET_STYLES = [
@@ -148,7 +203,7 @@ class OrbitBreaker extends Phaser.Scene {
     this.reserveShieldUsed = false;
     this.nextUpgradePickupAt = Phaser.Math.Between(
       UPGRADE_PICKUP_GRACE_MS,
-      UPGRADE_PICKUP_COOLDOWN_MAX_MS
+      UPGRADE_PICKUP_COOLDOWN_MAX_MS,
     );
     this.awaitingUpgrade = false;
     this.retryReady = false;
@@ -222,7 +277,7 @@ class OrbitBreaker extends Phaser.Scene {
         Phaser.Math.Between(0, WORLD_H),
         Phaser.Math.FloatBetween(0.7, 1.9),
         Phaser.Utils.Array.GetRandom(starColors),
-        Phaser.Math.FloatBetween(0.35, 0.88)
+        Phaser.Math.FloatBetween(0.35, 0.88),
       );
       star.speedFactor = Phaser.Math.FloatBetween(0.12, 0.34);
       this.stars.push(star);
@@ -260,11 +315,19 @@ class OrbitBreaker extends Phaser.Scene {
   }
 
   createPlayer() {
-    this.ship = this.add.image(START_PLANET_X, START_PLANET_Y - 70, "ship").setOrigin(0.5);
+    this.ship = this.add
+      .image(START_PLANET_X, START_PLANET_Y - 70, "ship")
+      .setOrigin(0.5);
     this.ship.setDepth(20);
     this.playerLayer.add(this.ship);
 
-    this.shipGlow = this.add.circle(this.ship.x, this.ship.y, 24, 0x00e5ff, 0.18);
+    this.shipGlow = this.add.circle(
+      this.ship.x,
+      this.ship.y,
+      24,
+      0x00e5ff,
+      0.18,
+    );
     this.shipGlow.setDepth(18);
     this.playerLayer.add(this.shipGlow);
 
@@ -274,64 +337,79 @@ class OrbitBreaker extends Phaser.Scene {
   }
 
   createUI() {
-    this.scoreText = this.add.text(WORLD_W / 2, 20, "0", {
-      color: "#f8fdff",
-      fontSize: "38px",
-      fontStyle: "900",
-      stroke: "#050712",
-      strokeThickness: 7,
-    }).setOrigin(0.5, 0);
+    this.scoreText = this.add
+      .text(WORLD_W / 2, 20, "0", {
+        color: "#f8fdff",
+        fontSize: "38px",
+        fontStyle: "900",
+        stroke: "#050712",
+        strokeThickness: 7,
+      })
+      .setOrigin(0.5, 0);
 
-    this.bestText = this.add.text(WORLD_W - 14, 16, `Best ${this.best}`, {
-      color: "#7fcfff",
-      fontSize: "15px",
-      fontStyle: "800",
-      stroke: "#050712",
-      strokeThickness: 5,
-    }).setOrigin(1, 0);
+    this.bestText = this.add
+      .text(WORLD_W - 14, 16, `Best ${this.best}`, {
+        color: "#7fcfff",
+        fontSize: "15px",
+        fontStyle: "800",
+        stroke: "#050712",
+        strokeThickness: 5,
+      })
+      .setOrigin(1, 0);
 
-    this.chainText = this.add.text(14, 17, "", {
-      color: "#ffdc4a",
-      fontSize: "14px",
-      fontStyle: "800",
-      stroke: "#050712",
-      strokeThickness: 5,
-    }).setOrigin(0, 0);
+    this.chainText = this.add
+      .text(14, 17, "", {
+        color: "#ffdc4a",
+        fontSize: "14px",
+        fontStyle: "800",
+        stroke: "#050712",
+        strokeThickness: 5,
+      })
+      .setOrigin(0, 0);
 
-    this.hintText = this.add.text(WORLD_W / 2, WORLD_H * 0.74, "TAP TO LAUNCH", {
-      color: "#9af7ff",
-      fontSize: "20px",
-      fontStyle: "900",
-      stroke: "#050712",
-      strokeThickness: 5,
-    }).setOrigin(0.5);
+    this.hintText = this.add
+      .text(WORLD_W / 2, WORLD_H * 0.74, "TAP TO LAUNCH", {
+        color: "#9af7ff",
+        fontSize: "20px",
+        fontStyle: "900",
+        stroke: "#050712",
+        strokeThickness: 5,
+      })
+      .setOrigin(0.5);
 
-    this.upgradeText = this.add.text(14, 42, "", {
-      color: "#8dffca",
-      fontSize: "11px",
-      lineSpacing: 2,
-      stroke: "#050712",
-      strokeThickness: 4,
-    }).setOrigin(0, 0);
+    this.upgradeText = this.add
+      .text(14, 42, "", {
+        color: "#8dffca",
+        fontSize: "11px",
+        lineSpacing: 2,
+        stroke: "#050712",
+        strokeThickness: 4,
+      })
+      .setOrigin(0, 0);
     this.refreshUpgradeText();
 
-    this.muteButton = this.add.text(WORLD_W - 14, WORLD_H - 14, this.muted ? "SFX OFF" : "SFX ON", {
-      color: "#6d8fb8",
-      fontSize: "12px",
-      fontStyle: "800",
-      stroke: "#050712",
-      strokeThickness: 4,
-    }).setOrigin(1, 1).setInteractive({ useHandCursor: true });
+    this.muteButton = this.add
+      .text(WORLD_W - 14, WORLD_H - 14, this.muted ? "SFX OFF" : "SFX ON", {
+        color: "#6d8fb8",
+        fontSize: "12px",
+        fontStyle: "800",
+        stroke: "#050712",
+        strokeThickness: 4,
+      })
+      .setOrigin(1, 1)
+      .setInteractive({ useHandCursor: true });
     this.muteButton.on("pointerdown", (_pointer, _x, _y, event) => {
       event?.stopPropagation();
       this.toggleMuted();
     });
 
-    const version = this.add.text(14, WORLD_H - 14, `v${VERSION}`, {
-      color: "#31435c",
-      fontSize: "12px",
-      fontStyle: "700",
-    }).setOrigin(0, 1);
+    const version = this.add
+      .text(14, WORLD_H - 14, `v${VERSION}`, {
+        color: "#31435c",
+        fontSize: "12px",
+        fontStyle: "700",
+      })
+      .setOrigin(0, 1);
 
     this.uiLayer.add([
       this.scoreText,
@@ -346,21 +424,35 @@ class OrbitBreaker extends Phaser.Scene {
 
   spawnNextPlanet() {
     const progress = this.getDifficulty();
-    const laneChoices = LANES
-      .map((x, i) => ({ x, i, weight: i === this.lastLane ? 0.35 : 1 }))
-      .filter((lane) => Math.abs(lane.x - LANES[this.lastLane]) <= 170 || progress < 0.55);
+    const laneChoices = LANES.map((x, i) => ({
+      x,
+      i,
+      weight: i === this.lastLane ? 0.35 : 1,
+    })).filter(
+      (lane) =>
+        Math.abs(lane.x - LANES[this.lastLane]) <= 170 || progress < 0.55,
+    );
     const pick = this.weightedLane(laneChoices);
     this.lastLane = pick.i;
 
     const fromPlanet = this.lastSpawnedPlanet;
     const radius = Phaser.Math.Between(22, Math.round(32 - progress * 5));
-    const capBase = Phaser.Math.Linear(BASE_CAPTURE_RADIUS, MIN_CAPTURE_RADIUS, progress);
+    const capBase = Phaser.Math.Linear(
+      BASE_CAPTURE_RADIUS,
+      MIN_CAPTURE_RADIUS,
+      progress,
+    );
     const captureRadius = this.getCaptureRadius(capBase);
     const orbitRadius = radius + Phaser.Math.Between(34, 42);
-    const orbitSpeed = Phaser.Math.FloatBetween(1.18 + progress * 0.24, 1.72 + progress * 0.38);
+    const orbitSpeed = Phaser.Math.FloatBetween(
+      1.18 + progress * 0.24,
+      1.72 + progress * 0.38,
+    );
     const style = Phaser.Utils.Array.GetRandom(PLANET_STYLES);
-    const unstable = this.runElapsed > 18000 && Math.random() < 0.16 + progress * 0.22;
-    const asteroid = this.runElapsed > 13000 && Math.random() < 0.18 + progress * 0.26;
+    const unstable =
+      this.runElapsed > 18000 && Math.random() < 0.16 + progress * 0.22;
+    const asteroid =
+      this.runElapsed > 13000 && Math.random() < 0.18 + progress * 0.26;
 
     const planet = this.spawnPlanet({
       x: pick.x + Phaser.Math.Between(-14, 14),
@@ -378,21 +470,37 @@ class OrbitBreaker extends Phaser.Scene {
     this.lastSpawnedPlanet = planet;
 
     if (Math.random() < 0.72) {
-      this.spawnShard(pick.x + Phaser.Math.Between(-42, 42), this.nextSpawnY + Phaser.Math.Between(74, 116));
+      this.spawnShard(
+        pick.x + Phaser.Math.Between(-42, 42),
+        this.nextSpawnY + Phaser.Math.Between(74, 116),
+      );
     }
 
-    const spacing = Phaser.Math.Linear(PLANET_SPACING_MIN, PLANET_SPACING_MAX, progress);
+    const spacing = Phaser.Math.Linear(
+      PLANET_SPACING_MIN,
+      PLANET_SPACING_MAX,
+      progress,
+    );
     this.nextSpawnY -= spacing + Phaser.Math.Between(-18, 22);
   }
 
   spawnPlanet(config) {
-    const style = typeof config.style === "string"
-      ? PLANET_STYLES.find((candidate) => candidate.id === config.style) || Phaser.Utils.Array.GetRandom(PLANET_STYLES)
-      : config.style || Phaser.Utils.Array.GetRandom(PLANET_STYLES);
-    const primaryColor = config.primaryColor ?? config.color ?? Phaser.Utils.Array.GetRandom(style.primaries);
-    const secondaryColor = config.secondaryColor ?? Phaser.Utils.Array.GetRandom(style.secondaries);
-    const accentColor = config.accentColor ?? Phaser.Utils.Array.GetRandom(style.accents);
-    const unstableBaseTime = config.unstable ? Phaser.Math.FloatBetween(1.4, 2.1) : Infinity;
+    const style =
+      typeof config.style === "string"
+        ? PLANET_STYLES.find((candidate) => candidate.id === config.style) ||
+          Phaser.Utils.Array.GetRandom(PLANET_STYLES)
+        : config.style || Phaser.Utils.Array.GetRandom(PLANET_STYLES);
+    const primaryColor =
+      config.primaryColor ??
+      config.color ??
+      Phaser.Utils.Array.GetRandom(style.primaries);
+    const secondaryColor =
+      config.secondaryColor ?? Phaser.Utils.Array.GetRandom(style.secondaries);
+    const accentColor =
+      config.accentColor ?? Phaser.Utils.Array.GetRandom(style.accents);
+    const unstableBaseTime = config.unstable
+      ? Phaser.Math.FloatBetween(1.4, 2.1)
+      : Infinity;
     const planet = {
       x: config.x,
       y: config.y,
@@ -428,12 +536,20 @@ class OrbitBreaker extends Phaser.Scene {
   }
 
   createPlanetDetails(style, radius) {
-    const details = { bands: [], craters: [], fissures: [], spots: [], arcs: [] };
+    const details = {
+      bands: [],
+      craters: [],
+      fissures: [],
+      spots: [],
+      arcs: [],
+    };
 
     if (style.id === "gas_banded") {
       for (let i = 0; i < 5; i++) {
         details.bands.push({
-          dy: Phaser.Math.Linear(-radius * 0.55, radius * 0.5, i / 4) + Phaser.Math.Between(-3, 3),
+          dy:
+            Phaser.Math.Linear(-radius * 0.55, radius * 0.5, i / 4) +
+            Phaser.Math.Between(-3, 3),
           h: Phaser.Math.Between(4, 8),
           alpha: Phaser.Math.FloatBetween(0.16, 0.34),
           useAccent: i % 2 === 0,
@@ -442,12 +558,23 @@ class OrbitBreaker extends Phaser.Scene {
     }
 
     if (style.id === "cratered_rock") {
-      for (let i = 0; i < 6; i++) details.craters.push(this.randomPlanetPoint(radius, 0.74, Phaser.Math.Between(3, 7)));
+      for (let i = 0; i < 6; i++)
+        details.craters.push(
+          this.randomPlanetPoint(radius, 0.74, Phaser.Math.Between(3, 7)),
+        );
     }
 
     if (style.id === "icy_ringed") {
-      details.arcs.push({ rx: radius * 1.75, ry: radius * 0.55, tilt: -0.38, alpha: 0.52 });
-      for (let i = 0; i < 4; i++) details.spots.push(this.randomPlanetPoint(radius, 0.62, Phaser.Math.Between(2, 4)));
+      details.arcs.push({
+        rx: radius * 1.75,
+        ry: radius * 0.55,
+        tilt: -0.38,
+        alpha: 0.52,
+      });
+      for (let i = 0; i < 4; i++)
+        details.spots.push(
+          this.randomPlanetPoint(radius, 0.62, Phaser.Math.Between(2, 4)),
+        );
     }
 
     if (style.id === "molten_core") {
@@ -466,18 +593,30 @@ class OrbitBreaker extends Phaser.Scene {
     }
 
     if (style.id === "neon_ocean") {
-      for (let i = 0; i < 5; i++) details.spots.push(this.randomPlanetPoint(radius, 0.72, Phaser.Math.Between(2, 5)));
-      details.arcs.push({ rx: radius * 0.78, ry: radius * 0.28, tilt: 0.5, alpha: 0.34 });
+      for (let i = 0; i < 5; i++)
+        details.spots.push(
+          this.randomPlanetPoint(radius, 0.72, Phaser.Math.Between(2, 5)),
+        );
+      details.arcs.push({
+        rx: radius * 0.78,
+        ry: radius * 0.28,
+        tilt: 0.5,
+        alpha: 0.34,
+      });
     }
 
     if (style.id === "dark_unstable") {
-      for (let i = 0; i < 4; i++) details.craters.push(this.randomPlanetPoint(radius, 0.68, Phaser.Math.Between(4, 8)));
-      for (let i = 0; i < 3; i++) details.fissures.push({
-        x1: Phaser.Math.FloatBetween(-radius * 0.45, radius * 0.25),
-        y1: Phaser.Math.FloatBetween(-radius * 0.45, radius * 0.45),
-        x2: Phaser.Math.FloatBetween(-radius * 0.15, radius * 0.55),
-        y2: Phaser.Math.FloatBetween(-radius * 0.45, radius * 0.45),
-      });
+      for (let i = 0; i < 4; i++)
+        details.craters.push(
+          this.randomPlanetPoint(radius, 0.68, Phaser.Math.Between(4, 8)),
+        );
+      for (let i = 0; i < 3; i++)
+        details.fissures.push({
+          x1: Phaser.Math.FloatBetween(-radius * 0.45, radius * 0.25),
+          y1: Phaser.Math.FloatBetween(-radius * 0.45, radius * 0.45),
+          x2: Phaser.Math.FloatBetween(-radius * 0.15, radius * 0.55),
+          y2: Phaser.Math.FloatBetween(-radius * 0.45, radius * 0.45),
+        });
     }
 
     return details;
@@ -502,8 +641,28 @@ class OrbitBreaker extends Phaser.Scene {
 
     planet.gfx.clear();
     if (planet.style.id === "icy_ringed") {
-      this.drawTiltedEllipse(planet.gfx, planet.x, planet.y, planet.radius * 1.78, planet.radius * 0.56, -0.38, planet.accentColor, planet.depleted ? 0.16 : 0.44, 4);
-      this.drawTiltedEllipse(planet.gfx, planet.x, planet.y, planet.radius * 1.38, planet.radius * 0.42, -0.38, 0xffffff, planet.depleted ? 0.08 : 0.18, 1.5);
+      this.drawTiltedEllipse(
+        planet.gfx,
+        planet.x,
+        planet.y,
+        planet.radius * 1.78,
+        planet.radius * 0.56,
+        -0.38,
+        planet.accentColor,
+        planet.depleted ? 0.16 : 0.44,
+        4,
+      );
+      this.drawTiltedEllipse(
+        planet.gfx,
+        planet.x,
+        planet.y,
+        planet.radius * 1.38,
+        planet.radius * 0.42,
+        -0.38,
+        0xffffff,
+        planet.depleted ? 0.08 : 0.18,
+        1.5,
+      );
     }
 
     planet.gfx.fillStyle(planet.primaryColor, planet.depleted ? 0.07 : 0.17);
@@ -516,7 +675,11 @@ class OrbitBreaker extends Phaser.Scene {
     planet.gfx.lineStyle(4, planet.primaryColor, planet.depleted ? 0.35 : 0.95);
     planet.gfx.strokeCircle(planet.x, planet.y, planet.radius);
     planet.gfx.fillStyle(0xffffff, 0.38);
-    planet.gfx.fillCircle(planet.x - planet.radius * 0.34, planet.y - planet.radius * 0.34, Math.max(4, planet.radius * 0.18));
+    planet.gfx.fillCircle(
+      planet.x - planet.radius * 0.34,
+      planet.y - planet.radius * 0.34,
+      Math.max(4, planet.radius * 0.18),
+    );
 
     planet.dangerRing.clear();
     if (planet.unstable) {
@@ -535,8 +698,16 @@ class OrbitBreaker extends Phaser.Scene {
     for (const band of planet.details.bands) {
       const dy = Phaser.Math.Clamp(band.dy, -r + 3, r - 3);
       const chord = Math.sqrt(Math.max(0, r * r - dy * dy));
-      g.fillStyle(band.useAccent ? planet.accentColor : planet.primaryColor, band.alpha * alphaScale);
-      g.fillRect(planet.x - chord, planet.y + dy - band.h / 2, chord * 2, band.h);
+      g.fillStyle(
+        band.useAccent ? planet.accentColor : planet.primaryColor,
+        band.alpha * alphaScale,
+      );
+      g.fillRect(
+        planet.x - chord,
+        planet.y + dy - band.h / 2,
+        chord * 2,
+        band.h,
+      );
     }
 
     for (const spot of planet.details.spots) {
@@ -555,17 +726,49 @@ class OrbitBreaker extends Phaser.Scene {
 
     for (const fissure of planet.details.fissures) {
       g.lineStyle(3, planet.accentColor, 0.62 * alphaScale);
-      g.lineBetween(planet.x + fissure.x1, planet.y + fissure.y1, planet.x + fissure.x2, planet.y + fissure.y2);
+      g.lineBetween(
+        planet.x + fissure.x1,
+        planet.y + fissure.y1,
+        planet.x + fissure.x2,
+        planet.y + fissure.y2,
+      );
       g.lineStyle(1, 0xffffff, 0.2 * alphaScale);
-      g.lineBetween(planet.x + fissure.x1, planet.y + fissure.y1, planet.x + fissure.x2, planet.y + fissure.y2);
+      g.lineBetween(
+        planet.x + fissure.x1,
+        planet.y + fissure.y1,
+        planet.x + fissure.x2,
+        planet.y + fissure.y2,
+      );
     }
 
     for (const arc of planet.details.arcs) {
-      this.drawTiltedEllipse(g, planet.x, planet.y, arc.rx, arc.ry, arc.tilt, planet.accentColor, arc.alpha * alphaScale, 2);
+      this.drawTiltedEllipse(
+        g,
+        planet.x,
+        planet.y,
+        arc.rx,
+        arc.ry,
+        arc.tilt,
+        planet.accentColor,
+        arc.alpha * alphaScale,
+        2,
+      );
     }
   }
 
-  drawTiltedEllipse(g, cx, cy, rx, ry, tilt, color, alpha, width, start = 0, end = Math.PI * 2) {
+  drawTiltedEllipse(
+    g,
+    cx,
+    cy,
+    rx,
+    ry,
+    tilt,
+    color,
+    alpha,
+    width,
+    start = 0,
+    end = Math.PI * 2,
+  ) {
     g.lineStyle(width, color, alpha);
     const steps = 40;
     let prev = null;
@@ -585,7 +788,8 @@ class OrbitBreaker extends Phaser.Scene {
       planet,
       angle: Phaser.Math.FloatBetween(0, Math.PI * 2),
       radius: planet.orbitRadius + Phaser.Math.Between(26, 40),
-      speed: Phaser.Math.FloatBetween(0.85, 1.35) * (Math.random() < 0.5 ? -1 : 1),
+      speed:
+        Phaser.Math.FloatBetween(0.85, 1.35) * (Math.random() < 0.5 ? -1 : 1),
       bodyRadius: Phaser.Math.Between(8, 12),
       gfx: this.add.graphics(),
       warning: this.add.graphics(),
@@ -689,7 +893,11 @@ class OrbitBreaker extends Phaser.Scene {
       if (p.unstable && p.capturedAt >= 0) {
         const held = (this.elapsed - p.capturedAt) / 1000;
         const remaining = Math.max(0, p.unstableTime - held);
-        p.dangerRing.alpha = Phaser.Math.Clamp(remaining / p.unstableTime, 0.25, 1);
+        p.dangerRing.alpha = Phaser.Math.Clamp(
+          remaining / p.unstableTime,
+          0.25,
+          1,
+        );
         if (remaining <= 0) {
           this.killPlayer("Unstable gravity well");
         }
@@ -716,7 +924,7 @@ class OrbitBreaker extends Phaser.Scene {
   getOrbitTangent() {
     return new Phaser.Math.Vector2(
       -Math.sin(this.orbitAngle) * this.orbitDir,
-      Math.cos(this.orbitAngle) * this.orbitDir
+      Math.cos(this.orbitAngle) * this.orbitDir,
     );
   }
 
@@ -732,7 +940,12 @@ class OrbitBreaker extends Phaser.Scene {
     let bestDist = Infinity;
     for (const planet of this.planets) {
       if (planet === this.captureIgnorePlanet) continue;
-      const d = Phaser.Math.Distance.Between(this.ship.x, this.ship.y, planet.x, planet.y);
+      const d = Phaser.Math.Distance.Between(
+        this.ship.x,
+        this.ship.y,
+        planet.x,
+        planet.y,
+      );
       const pullRange = planet.captureRadius + 62;
       if (d >= planet.captureRadius && d < pullRange && d < bestDist) {
         best = planet;
@@ -742,7 +955,8 @@ class OrbitBreaker extends Phaser.Scene {
 
     if (!best || bestDist <= 1) return;
 
-    const edgeT = 1 - Phaser.Math.Clamp((bestDist - best.captureRadius) / 62, 0, 1);
+    const edgeT =
+      1 - Phaser.Math.Clamp((bestDist - best.captureRadius) / 62, 0, 1);
     const pull = 98 * edgeT * edgeT;
     this.freeVelocity.x += ((best.x - this.ship.x) / bestDist) * pull * dt;
     this.freeVelocity.y += ((best.y - this.ship.y) / bestDist) * pull * dt;
@@ -751,7 +965,12 @@ class OrbitBreaker extends Phaser.Scene {
   checkCapture() {
     const planet = this.findNearestPlanet(this.ship.x, this.ship.y, 999);
     if (!planet) return;
-    const dist = Phaser.Math.Distance.Between(this.ship.x, this.ship.y, planet.x, planet.y);
+    const dist = Phaser.Math.Distance.Between(
+      this.ship.x,
+      this.ship.y,
+      planet.x,
+      planet.y,
+    );
     if (dist <= planet.captureRadius) {
       this.capturePlanet(planet, false);
     }
@@ -782,13 +1001,23 @@ class OrbitBreaker extends Phaser.Scene {
     }
     this.updateChainText();
 
-    this.addPulse(planet.x, planet.y, planet.captureRadius, blinked ? 0x8dffca : 0xffdc4a);
+    this.addPulse(
+      planet.x,
+      planet.y,
+      planet.captureRadius,
+      blinked ? 0x8dffca : 0xffdc4a,
+    );
     this.cameras.main.shake(blinked ? 130 : 80, blinked ? 0.012 : 0.006);
     this.playSfx(blinked ? "blink" : "capture");
   }
 
   checkMiss() {
-    if (this.ship.x < -58 || this.ship.x > WORLD_W + 58 || this.ship.y < -96 || this.ship.y > WORLD_H + 80) {
+    if (
+      this.ship.x < -58 ||
+      this.ship.x > WORLD_W + 58 ||
+      this.ship.y < -96 ||
+      this.ship.y > WORLD_H + 80
+    ) {
       if (this.tryAutoBlink()) return;
       this.killPlayer("Lost trajectory");
     }
@@ -812,7 +1041,12 @@ class OrbitBreaker extends Phaser.Scene {
       return;
     }
 
-    const dist = Phaser.Math.Distance.Between(this.ship.x, this.ship.y, planet.x, planet.y);
+    const dist = Phaser.Math.Distance.Between(
+      this.ship.x,
+      this.ship.y,
+      planet.x,
+      planet.y,
+    );
     if (dist > planet.captureRadius + 10) {
       this.captureIgnorePlanet = null;
     }
@@ -851,7 +1085,10 @@ class OrbitBreaker extends Phaser.Scene {
       asteroid.gfx.lineStyle(2, 0xffffff, 0.4);
       asteroid.gfx.strokeCircle(x, y, asteroid.bodyRadius);
 
-      if (Phaser.Math.Distance.Between(this.ship.x, this.ship.y, x, y) < asteroid.bodyRadius + this.getShipHazardRadius()) {
+      if (
+        Phaser.Math.Distance.Between(this.ship.x, this.ship.y, x, y) <
+        asteroid.bodyRadius + this.getShipHazardRadius()
+      ) {
         this.killPlayer("Asteroid impact");
       }
     }
@@ -865,14 +1102,26 @@ class OrbitBreaker extends Phaser.Scene {
       shard.setScale(1 + Math.sin((this.elapsed + shard.x * 7) * 0.008) * 0.08);
 
       if (magnet) {
-        const d = Phaser.Math.Distance.Between(this.ship.x, this.ship.y, shard.x, shard.y);
+        const d = Phaser.Math.Distance.Between(
+          this.ship.x,
+          this.ship.y,
+          shard.x,
+          shard.y,
+        );
         if (d < 92 && d > 2) {
           shard.x += ((this.ship.x - shard.x) / d) * 180 * dt;
           shard.y += ((this.ship.y - shard.y) / d) * 180 * dt;
         }
       }
 
-      if (Phaser.Math.Distance.Between(this.ship.x, this.ship.y, shard.x, shard.y) < 28) {
+      if (
+        Phaser.Math.Distance.Between(
+          this.ship.x,
+          this.ship.y,
+          shard.x,
+          shard.y,
+        ) < 28
+      ) {
         this.collectShard(shard);
       }
     }
@@ -886,23 +1135,40 @@ class OrbitBreaker extends Phaser.Scene {
     const combo = this.hasUpgrade("combo_boost") ? 1.35 : 1;
     this.bonusScore += Math.round(SHARD_VALUE * combo);
     this.addPulse(x, y, 22, 0xffdc4a);
-    this.tweens.add({ targets: this.scoreText, scaleX: 1.18, scaleY: 1.18, duration: 70, yoyo: true });
+    this.tweens.add({
+      targets: this.scoreText,
+      scaleX: 1.18,
+      scaleY: 1.18,
+      duration: 70,
+      yoyo: true,
+    });
     this.maybeRechargeReserveShield(x, y);
     this.playSfx("shard");
   }
 
   maybeSpawnUpgradePickupBetween(fromPlanet, toPlanet) {
     if (!fromPlanet || !toPlanet || !this.hasLaunchedOnce) return;
-    if (this.runElapsed < UPGRADE_PICKUP_GRACE_MS || this.runElapsed < this.nextUpgradePickupAt) return;
-    if (this.upgradePickups.some((pickup) => !pickup.collected && pickup.container.active)) return;
+    if (
+      this.runElapsed < UPGRADE_PICKUP_GRACE_MS ||
+      this.runElapsed < this.nextUpgradePickupAt
+    )
+      return;
+    if (
+      this.upgradePickups.some(
+        (pickup) => !pickup.collected && pickup.container.active,
+      )
+    )
+      return;
 
     const available = this.getAvailableUpgrades();
     if (!available.length) return;
 
-    this.nextUpgradePickupAt = this.runElapsed + Phaser.Math.Between(
-      this.hasUpgrade("deep_scan") ? 7000 : UPGRADE_PICKUP_COOLDOWN_MIN_MS,
-      this.hasUpgrade("deep_scan") ? 13000 : UPGRADE_PICKUP_COOLDOWN_MAX_MS
-    );
+    this.nextUpgradePickupAt =
+      this.runElapsed +
+      Phaser.Math.Between(
+        this.hasUpgrade("deep_scan") ? 7000 : UPGRADE_PICKUP_COOLDOWN_MIN_MS,
+        this.hasUpgrade("deep_scan") ? 13000 : UPGRADE_PICKUP_COOLDOWN_MAX_MS,
+      );
 
     const chance = this.hasUpgrade("deep_scan") ? 0.18 : UPGRADE_PICKUP_CHANCE;
     if (Math.random() > chance) return;
@@ -913,7 +1179,7 @@ class OrbitBreaker extends Phaser.Scene {
     this.spawnUpgradePickup(
       placement.x,
       placement.y,
-      Phaser.Utils.Array.GetRandom(available)
+      Phaser.Utils.Array.GetRandom(available),
     );
   }
 
@@ -936,9 +1202,21 @@ class OrbitBreaker extends Phaser.Scene {
 
       if (x < 42 || x > WORLD_W - 42) continue;
       if (y > this.getDangerY() - 86) continue;
-      if (Phaser.Math.Distance.Between(x, y, fromPlanet.x, fromPlanet.y) < fromPlanet.radius + 54) continue;
-      if (Phaser.Math.Distance.Between(x, y, toPlanet.x, toPlanet.y) < toPlanet.radius + 54) continue;
-      if (this.isNearAsteroidOrbit(x, y, fromPlanet) || this.isNearAsteroidOrbit(x, y, toPlanet)) continue;
+      if (
+        Phaser.Math.Distance.Between(x, y, fromPlanet.x, fromPlanet.y) <
+        fromPlanet.radius + 54
+      )
+        continue;
+      if (
+        Phaser.Math.Distance.Between(x, y, toPlanet.x, toPlanet.y) <
+        toPlanet.radius + 54
+      )
+        continue;
+      if (
+        this.isNearAsteroidOrbit(x, y, fromPlanet) ||
+        this.isNearAsteroidOrbit(x, y, toPlanet)
+      )
+        continue;
 
       return { x, y };
     }
@@ -950,7 +1228,10 @@ class OrbitBreaker extends Phaser.Scene {
     return this.asteroids.some((asteroid) => {
       if (asteroid.planet !== planet) return false;
       const d = Phaser.Math.Distance.Between(x, y, planet.x, planet.y);
-      return Math.abs(d - asteroid.radius) < asteroid.bodyRadius + UPGRADE_PICKUP_RADIUS + 18;
+      return (
+        Math.abs(d - asteroid.radius) <
+        asteroid.bodyRadius + UPGRADE_PICKUP_RADIUS + 18
+      );
     });
   }
 
@@ -961,12 +1242,14 @@ class OrbitBreaker extends Phaser.Scene {
     ring.setStrokeStyle(2, color, 0.92);
     const core = this.add.circle(0, 0, UPGRADE_PICKUP_RADIUS, color, 0.96);
     core.setStrokeStyle(2, 0xffffff, 0.72);
-    const label = this.add.text(0, 1, this.getUpgradeGlyph(upgrade.id), {
-      color: "#050712",
-      fontSize: "9px",
-      fontStyle: "900",
-      align: "center",
-    }).setOrigin(0.5);
+    const label = this.add
+      .text(0, 1, this.getUpgradeGlyph(upgrade.id), {
+        color: "#050712",
+        fontSize: "9px",
+        fontStyle: "900",
+        align: "center",
+      })
+      .setOrigin(0.5);
     const container = this.add.container(x, y, [glow, ring, core, label]);
     container.setDepth(10);
     this.worldLayer.add(container);
@@ -989,17 +1272,29 @@ class OrbitBreaker extends Phaser.Scene {
       if (pickup.collected || !pickup.container.active) continue;
 
       const scanBoost = this.hasUpgrade("deep_scan") ? 1.45 : 1;
-      const pulse = 1 + Math.sin(this.elapsed * 0.006 + pickup.phase) * 0.1 * scanBoost;
+      const pulse =
+        1 + Math.sin(this.elapsed * 0.006 + pickup.phase) * 0.1 * scanBoost;
       pickup.container.setScale(pulse);
-      pickup.ring.alpha = 0.68 + Math.sin(this.elapsed * 0.008 + pickup.phase) * 0.22;
-      pickup.glow.alpha = 0.14 + Math.sin(this.elapsed * 0.007 + pickup.phase) * 0.05 * scanBoost;
+      pickup.ring.alpha =
+        0.68 + Math.sin(this.elapsed * 0.008 + pickup.phase) * 0.22;
+      pickup.glow.alpha =
+        0.14 + Math.sin(this.elapsed * 0.007 + pickup.phase) * 0.05 * scanBoost;
 
-      if (Phaser.Math.Distance.Between(this.ship.x, this.ship.y, pickup.x, pickup.y) < UPGRADE_PICKUP_COLLECT_RADIUS) {
+      if (
+        Phaser.Math.Distance.Between(
+          this.ship.x,
+          this.ship.y,
+          pickup.x,
+          pickup.y,
+        ) < UPGRADE_PICKUP_COLLECT_RADIUS
+      ) {
         this.collectUpgradePickup(pickup);
       }
     }
 
-    this.upgradePickups = this.upgradePickups.filter((pickup) => !pickup.collected && pickup.container.active);
+    this.upgradePickups = this.upgradePickups.filter(
+      (pickup) => !pickup.collected && pickup.container.active,
+    );
   }
 
   collectUpgradePickup(pickup) {
@@ -1020,14 +1315,22 @@ class OrbitBreaker extends Phaser.Scene {
 
     this.addPulse(x, y, 42, upgrade.color ?? 0x8dffca);
     this.showFloatingLabel(upgrade.name, x, y - 24, upgrade.color ?? 0x8dffca);
-    this.tweens.add({ targets: this.scoreText, scaleX: 1.15, scaleY: 1.15, duration: 80, yoyo: true });
+    this.tweens.add({
+      targets: this.scoreText,
+      scaleX: 1.15,
+      scaleY: 1.15,
+      duration: 80,
+      yoyo: true,
+    });
     this.playSfx("upgrade");
   }
 
   getAvailableUpgrades() {
     return UPGRADE_POOL.filter((upgrade) => {
       if (this.activeUpgrades.includes(upgrade.id)) return false;
-      return !this.upgradePickups.some((pickup) => !pickup.collected && pickup.upgradeId === upgrade.id);
+      return !this.upgradePickups.some(
+        (pickup) => !pickup.collected && pickup.upgradeId === upgrade.id,
+      );
     });
   }
 
@@ -1120,7 +1423,12 @@ class OrbitBreaker extends Phaser.Scene {
 
   maybeRechargeReserveShield(x, y) {
     if (!this.hasUpgrade("reserve_shield")) return;
-    if (!this.hasUpgrade("shield") || this.shieldReady || this.reserveShieldUsed) return;
+    if (
+      !this.hasUpgrade("shield") ||
+      this.shieldReady ||
+      this.reserveShieldUsed
+    )
+      return;
 
     this.reserveShieldShards += 1;
     if (this.reserveShieldShards < RESERVE_SHIELD_SHARDS) return;
@@ -1136,14 +1444,16 @@ class OrbitBreaker extends Phaser.Scene {
 
   showFloatingLabel(text, x, y, color) {
     const textColor = color ?? 0xffffff;
-    const label = this.add.text(x, y, text, {
-      color: `#${textColor.toString(16).padStart(6, "0")}`,
-      fontSize: "13px",
-      fontStyle: "900",
-      align: "center",
-      stroke: "#050712",
-      strokeThickness: 4,
-    }).setOrigin(0.5);
+    const label = this.add
+      .text(x, y, text, {
+        color: `#${textColor.toString(16).padStart(6, "0")}`,
+        fontSize: "13px",
+        fontStyle: "900",
+        align: "center",
+        stroke: "#050712",
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5);
     this.fxLayer.add(label);
     this.tweens.add({
       targets: label,
@@ -1163,7 +1473,11 @@ class OrbitBreaker extends Phaser.Scene {
     if (Math.random() > 0.35 + progress * 0.24) return;
 
     const fromLeft = Math.random() < 0.5;
-    const y = Phaser.Math.Clamp(this.ship.y + Phaser.Math.Between(-80, 80), 108, WORLD_H - 205);
+    const y = Phaser.Math.Clamp(
+      this.ship.y + Phaser.Math.Between(-80, 80),
+      108,
+      WORLD_H - 205,
+    );
     const warning = this.add.graphics();
     const missile = {
       x: fromLeft ? -46 : WORLD_W + 46,
@@ -1192,13 +1506,32 @@ class OrbitBreaker extends Phaser.Scene {
       missile.x += missile.vx * dt;
       missile.body.clear();
       missile.body.fillStyle(0xff4a6d, 1);
-      missile.body.fillTriangle(missile.x, missile.y, missile.x - Math.sign(missile.vx) * 28, missile.y - 10, missile.x - Math.sign(missile.vx) * 28, missile.y + 10);
+      missile.body.fillTriangle(
+        missile.x,
+        missile.y,
+        missile.x - Math.sign(missile.vx) * 28,
+        missile.y - 10,
+        missile.x - Math.sign(missile.vx) * 28,
+        missile.y + 10,
+      );
       missile.body.fillStyle(0xffdc4a, 0.85);
-      missile.body.fillCircle(missile.x - Math.sign(missile.vx) * 25, missile.y, 6);
+      missile.body.fillCircle(
+        missile.x - Math.sign(missile.vx) * 25,
+        missile.y,
+        6,
+      );
       missile.body.lineStyle(2, 0xffffff, 0.4);
       missile.body.strokeCircle(missile.x, missile.y, 13);
 
-      if (Phaser.Math.Distance.Between(this.ship.x, this.ship.y, missile.x, missile.y) < 13 + this.getShipHazardRadius()) {
+      if (
+        Phaser.Math.Distance.Between(
+          this.ship.x,
+          this.ship.y,
+          missile.x,
+          missile.y,
+        ) <
+        13 + this.getShipHazardRadius()
+      ) {
         this.killPlayer("Missile strike");
       }
     }
@@ -1215,22 +1548,33 @@ class OrbitBreaker extends Phaser.Scene {
 
   getMeteoriteDelay(progress) {
     const baseDelay = Phaser.Math.Between(5200, 7600) - progress * 2700;
-    const earlyPadding = this.meteoritesSpawned < 3 ? Phaser.Math.Between(650, 1100) : 0;
-    return Math.max(this.meteoritesSpawned < 3 ? 3300 : 1900, baseDelay + earlyPadding);
+    const earlyPadding =
+      this.meteoritesSpawned < 3 ? Phaser.Math.Between(650, 1100) : 0;
+    return Math.max(
+      this.meteoritesSpawned < 3 ? 3300 : 1900,
+      baseDelay + earlyPadding,
+    );
   }
 
   spawnMeteorite(progress) {
-    const minClearance = Phaser.Math.Linear(METEOR_EARLY_CLEARANCE, METEOR_LATE_CLEARANCE, progress);
+    const minClearance = Phaser.Math.Linear(
+      METEOR_EARLY_CLEARANCE,
+      METEOR_LATE_CLEARANCE,
+      progress,
+    );
     const candidates = [];
 
     for (let i = 0; i < METEOR_CANDIDATES; i++) {
       candidates.push(this.createMeteoriteCandidate(progress));
     }
 
-    const safeCandidates = candidates.filter((candidate) => candidate.clearance >= minClearance);
+    const safeCandidates = candidates.filter(
+      (candidate) => candidate.clearance >= minClearance,
+    );
     const pool = safeCandidates.length > 0 ? safeCandidates : candidates;
     pool.sort((a, b) => b.score - a.score);
-    const meteorite = pool[Phaser.Math.Between(0, Math.min(3, pool.length - 1))];
+    const meteorite =
+      pool[Phaser.Math.Between(0, Math.min(3, pool.length - 1))];
     const { edge, startX, startY, targetX, targetY } = meteorite;
     const dx = targetX - startX;
     const dy = targetY - startY;
@@ -1261,20 +1605,22 @@ class OrbitBreaker extends Phaser.Scene {
   createMeteoriteCandidate(progress) {
     const edge = this.pickMeteoriteEdge();
     const targetX = Phaser.Math.Clamp(
-      this.ship.x + Phaser.Math.Between(
-        -Math.round(Phaser.Math.Linear(145, 95, progress)),
-        Math.round(Phaser.Math.Linear(145, 95, progress))
-      ),
+      this.ship.x +
+        Phaser.Math.Between(
+          -Math.round(Phaser.Math.Linear(145, 95, progress)),
+          Math.round(Phaser.Math.Linear(145, 95, progress)),
+        ),
       46,
-      WORLD_W - 46
+      WORLD_W - 46,
     );
     const targetY = Phaser.Math.Clamp(
-      this.ship.y + Phaser.Math.Between(
-        -Math.round(Phaser.Math.Linear(190, 150, progress)),
-        Math.round(Phaser.Math.Linear(165, 120, progress))
-      ),
+      this.ship.y +
+        Phaser.Math.Between(
+          -Math.round(Phaser.Math.Linear(190, 150, progress)),
+          Math.round(Phaser.Math.Linear(165, 120, progress)),
+        ),
       96,
-      WORLD_H - 210
+      WORLD_H - 210,
     );
     let startX = 0;
     let startY = 0;
@@ -1290,9 +1636,21 @@ class OrbitBreaker extends Phaser.Scene {
       startY = Phaser.Math.Between(80, WORLD_H - 260);
     }
 
-    const clearance = this.distanceToSegment(this.ship.x, this.ship.y, startX, startY, targetX, targetY);
+    const clearance = this.distanceToSegment(
+      this.ship.x,
+      this.ship.y,
+      startX,
+      startY,
+      targetX,
+      targetY,
+    );
     const targetGap = this.lastMeteoriteTarget
-      ? Phaser.Math.Distance.Between(targetX, targetY, this.lastMeteoriteTarget.x, this.lastMeteoriteTarget.y)
+      ? Phaser.Math.Distance.Between(
+          targetX,
+          targetY,
+          this.lastMeteoriteTarget.x,
+          this.lastMeteoriteTarget.y,
+        )
       : 180;
     const edgePenalty = edge === this.lastMeteoriteEdge ? 24 : 0;
 
@@ -1303,7 +1661,11 @@ class OrbitBreaker extends Phaser.Scene {
       targetX,
       targetY,
       clearance,
-      score: clearance + Math.min(targetGap, 180) * 0.22 - edgePenalty + Math.random() * 8,
+      score:
+        clearance +
+        Math.min(targetGap, 180) * 0.22 -
+        edgePenalty +
+        Math.random() * 8,
     };
   }
 
@@ -1330,7 +1692,11 @@ class OrbitBreaker extends Phaser.Scene {
     const lenSq = dx * dx + dy * dy;
     if (lenSq <= 0) return Phaser.Math.Distance.Between(px, py, ax, ay);
 
-    const t = Phaser.Math.Clamp(((px - ax) * dx + (py - ay) * dy) / lenSq, 0, 1);
+    const t = Phaser.Math.Clamp(
+      ((px - ax) * dx + (py - ay) * dy) / lenSq,
+      0,
+      1,
+    );
     return Phaser.Math.Distance.Between(px, py, ax + dx * t, ay + dy * t);
   }
 
@@ -1347,9 +1713,18 @@ class OrbitBreaker extends Phaser.Scene {
       meteorite.y += meteorite.vy * dt;
       this.drawMeteorite(meteorite);
 
-      if (Phaser.Math.Distance.Between(this.ship.x, this.ship.y, meteorite.x, meteorite.y) < meteorite.bodyRadius + this.getShipHazardRadius()) {
+      if (
+        Phaser.Math.Distance.Between(
+          this.ship.x,
+          this.ship.y,
+          meteorite.x,
+          meteorite.y,
+        ) <
+        meteorite.bodyRadius + this.getShipHazardRadius()
+      ) {
         const result = this.killPlayer("Meteorite impact");
-        if (result === "shield" || result === "upgrade" || result === "ignored") meteorite.done = true;
+        if (result === "shield" || result === "upgrade" || result === "ignored")
+          meteorite.done = true;
       }
 
       if (
@@ -1374,9 +1749,19 @@ class OrbitBreaker extends Phaser.Scene {
     const alpha = 0.28 + Math.sin(this.elapsed * 0.035) * 0.16;
     meteorite.warning.clear();
     meteorite.warning.lineStyle(5, 0xff9a3c, alpha);
-    meteorite.warning.lineBetween(meteorite.startX, meteorite.startY, meteorite.targetX, meteorite.targetY);
+    meteorite.warning.lineBetween(
+      meteorite.startX,
+      meteorite.startY,
+      meteorite.targetX,
+      meteorite.targetY,
+    );
     meteorite.warning.lineStyle(2, 0xffffff, alpha * 0.7);
-    meteorite.warning.lineBetween(meteorite.startX, meteorite.startY, meteorite.targetX, meteorite.targetY);
+    meteorite.warning.lineBetween(
+      meteorite.startX,
+      meteorite.startY,
+      meteorite.targetX,
+      meteorite.targetY,
+    );
   }
 
   drawMeteorite(meteorite) {
@@ -1393,14 +1778,18 @@ class OrbitBreaker extends Phaser.Scene {
       meteorite.x - meteorite.dirX * tail * 0.68,
       meteorite.y - meteorite.dirY * tail * 0.68,
       meteorite.x,
-      meteorite.y
+      meteorite.y,
     );
     g.fillStyle(0xff9a3c, 0.18);
     g.fillCircle(meteorite.x, meteorite.y, meteorite.bodyRadius + 10);
     g.fillStyle(0x3b2d32, 1);
     g.fillCircle(meteorite.x, meteorite.y, meteorite.bodyRadius);
     g.fillStyle(0xffdc4a, 0.78);
-    g.fillCircle(meteorite.x - meteorite.dirX * 4, meteorite.y - meteorite.dirY * 4, Math.max(3, meteorite.bodyRadius * 0.32));
+    g.fillCircle(
+      meteorite.x - meteorite.dirX * 4,
+      meteorite.y - meteorite.dirY * 4,
+      Math.max(3, meteorite.bodyRadius * 0.32),
+    );
     g.lineStyle(2, 0xff4a6d, 0.88);
     g.strokeCircle(meteorite.x, meteorite.y, meteorite.bodyRadius);
   }
@@ -1424,7 +1813,10 @@ class OrbitBreaker extends Phaser.Scene {
     this.trailGfx.clear();
     for (const t of this.trail) {
       const a = Phaser.Math.Clamp(t.life / t.maxLife, 0, 1);
-      this.trailGfx.fillStyle(this.mode === "orbit" ? 0x00e5ff : 0xff4fd8, a * 0.2);
+      this.trailGfx.fillStyle(
+        this.mode === "orbit" ? 0x00e5ff : 0xff4fd8,
+        a * 0.2,
+      );
       this.trailGfx.fillCircle(t.x, t.y, t.r * a);
     }
   }
@@ -1572,9 +1964,19 @@ class OrbitBreaker extends Phaser.Scene {
     const alpha = Phaser.Math.Clamp(star.life / star.maxLife, 0, 1);
     star.gfx.clear();
     star.gfx.lineStyle(star.width + 2, star.color, 0.12 * alpha);
-    star.gfx.lineBetween(star.x - star.dirX * star.length * 1.25, star.y - star.dirY * star.length * 1.25, star.x, star.y);
+    star.gfx.lineBetween(
+      star.x - star.dirX * star.length * 1.25,
+      star.y - star.dirY * star.length * 1.25,
+      star.x,
+      star.y,
+    );
     star.gfx.lineStyle(star.width, star.color, 0.72 * alpha);
-    star.gfx.lineBetween(star.x - star.dirX * star.length, star.y - star.dirY * star.length, star.x, star.y);
+    star.gfx.lineBetween(
+      star.x - star.dirX * star.length,
+      star.y - star.dirY * star.length,
+      star.x,
+      star.y,
+    );
     star.gfx.fillStyle(0xffffff, 0.85 * alpha);
     star.gfx.fillCircle(star.x, star.y, star.width + 1);
   }
@@ -1663,7 +2065,13 @@ class OrbitBreaker extends Phaser.Scene {
     this.shieldRing = this.add.circle(this.ship.x, this.ship.y, 28);
     this.shieldRing.setStrokeStyle(3, 0xffdc4a, 0.9);
     this.playerLayer.add(this.shieldRing);
-    this.tweens.add({ targets: this.shieldRing, alpha: 0.28, duration: 520, yoyo: true, repeat: -1 });
+    this.tweens.add({
+      targets: this.shieldRing,
+      alpha: 0.28,
+      duration: 520,
+      yoyo: true,
+      repeat: -1,
+    });
   }
 
   spendShield() {
@@ -1698,7 +2106,12 @@ class OrbitBreaker extends Phaser.Scene {
       if (!this.isDead) this.ship.clearTint();
     });
     this.addPulse(this.ship.x, this.ship.y, 48, upgrade?.color ?? 0xff9a3c);
-    this.showFloatingLabel(`${upgrade?.name || "UPGRADE"} BROKEN`, this.ship.x, this.ship.y - 28, upgrade?.color ?? 0xff9a3c);
+    this.showFloatingLabel(
+      `${upgrade?.name || "UPGRADE"} BROKEN`,
+      this.ship.x,
+      this.ship.y - 28,
+      upgrade?.color ?? 0xff9a3c,
+    );
     this.playSfx("break");
     return true;
   }
@@ -1722,35 +2135,56 @@ class OrbitBreaker extends Phaser.Scene {
     this.ship.setTint(0xff4a6d);
     this.cameras.main.shake(340, 0.025);
     this.addPulse(this.ship.x, this.ship.y, 72, 0xff4a6d);
-    this.tweens.add({ targets: this.ship, scaleX: 1.6, scaleY: 0.25, duration: 170, ease: "Back.easeIn" });
+    this.tweens.add({
+      targets: this.ship,
+      scaleX: 1.6,
+      scaleY: 0.25,
+      duration: 170,
+      ease: "Back.easeIn",
+    });
     this.playSfx("death");
-    this.time.delayedCall(620, () => this.showGameOver(finalScore, newBest, reason));
+    this.time.delayedCall(620, () =>
+      this.showGameOver(finalScore, newBest, reason),
+    );
     return "death";
   }
 
   showGameOver(finalScore, newBest, reason) {
-    const veil = this.add.rectangle(0, 0, WORLD_W, WORLD_H, 0x02040b, 0.86).setOrigin(0);
-    const title = this.add.text(WORLD_W / 2, 72, "ORBIT BREAKER", {
-      color: "#f8fdff",
-      fontSize: "28px",
-      fontStyle: "900",
-      stroke: "#050712",
-      strokeThickness: 7,
-    }).setOrigin(0.5);
+    const veil = this.add
+      .rectangle(0, 0, WORLD_W, WORLD_H, 0x02040b, 0.86)
+      .setOrigin(0);
+    const title = this.add
+      .text(WORLD_W / 2, 72, "ORBIT BREAKER", {
+        color: "#f8fdff",
+        fontSize: "28px",
+        fontStyle: "900",
+        stroke: "#050712",
+        strokeThickness: 7,
+      })
+      .setOrigin(0.5);
 
-    const score = this.add.text(WORLD_W / 2, 116, newBest ? `${finalScore}  NEW BEST` : `Score  ${finalScore}`, {
-      color: newBest ? "#ffdc4a" : "#9af7ff",
-      fontSize: "22px",
-      fontStyle: "900",
-      stroke: "#050712",
-      strokeThickness: 5,
-    }).setOrigin(0.5);
+    const score = this.add
+      .text(
+        WORLD_W / 2,
+        116,
+        newBest ? `${finalScore}  NEW BEST` : `Score  ${finalScore}`,
+        {
+          color: newBest ? "#ffdc4a" : "#9af7ff",
+          fontSize: "22px",
+          fontStyle: "900",
+          stroke: "#050712",
+          strokeThickness: 5,
+        },
+      )
+      .setOrigin(0.5);
 
-    const why = this.add.text(WORLD_W / 2, 150, reason || "Run ended", {
-      color: "#6d8fb8",
-      fontSize: "13px",
-      fontStyle: "800",
-    }).setOrigin(0.5);
+    const why = this.add
+      .text(WORLD_W / 2, 150, reason || "Run ended", {
+        color: "#6d8fb8",
+        fontSize: "13px",
+        fontStyle: "800",
+      })
+      .setOrigin(0.5);
 
     this.overlayLayer.add([veil, title, score, why]);
     this.awaitingUpgrade = false;
@@ -1758,19 +2192,23 @@ class OrbitBreaker extends Phaser.Scene {
 
     const held = this.activeUpgrades.length
       ? `${this.activeUpgrades.length} systems online`
-      : "No upgrades installed";
-    const msg = this.add.text(WORLD_W / 2, WORLD_H * 0.43, held, {
-      color: this.activeUpgrades.length ? "#8dffca" : "#6d8fb8",
-      fontSize: "17px",
-      fontStyle: "800",
-    }).setOrigin(0.5);
-    const retry = this.add.text(WORLD_W / 2, WORLD_H * 0.56, "TAP TO RETRY", {
-      color: "#ff4fd8",
-      fontSize: "20px",
-      fontStyle: "900",
-      stroke: "#050712",
-      strokeThickness: 5,
-    }).setOrigin(0.5);
+      : "No upgrades collected";
+    const msg = this.add
+      .text(WORLD_W / 2, WORLD_H * 0.43, held, {
+        color: this.activeUpgrades.length ? "#8dffca" : "#6d8fb8",
+        fontSize: "17px",
+        fontStyle: "800",
+      })
+      .setOrigin(0.5);
+    const retry = this.add
+      .text(WORLD_W / 2, WORLD_H * 0.56, "TAP TO RETRY", {
+        color: "#ff4fd8",
+        fontSize: "20px",
+        fontStyle: "900",
+        stroke: "#050712",
+        strokeThickness: 5,
+      })
+      .setOrigin(0.5);
     this.overlayLayer.add([msg, retry]);
   }
 
@@ -1938,6 +2376,12 @@ window.addEventListener("resize", () => {
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./service-worker.js").catch(() => {});
+    navigator.serviceWorker
+      .register(`./service-worker.js?v=${VERSION}`)
+      .then((registration) => {
+        registration.update?.();
+        registration.waiting?.postMessage({ type: "SKIP_WAITING" });
+      })
+      .catch(() => {});
   });
 }

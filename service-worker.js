@@ -1,13 +1,14 @@
-const CACHE_NAME = "orbit-breaker-20260425-7";
+const CACHE_NAME = "orbit-breaker-20260425-8";
+const CACHE_PREFIX = "orbit-breaker-";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./game.js",
+  "./game.js?v=20260425-8",
   "./manifest.webmanifest",
   "./icon.svg",
   "./icon-192.png",
   "./icon-512.png",
-  "./phaser.min.js"
+  "./phaser.min.js?v=20260425-8"
 ];
 
 self.addEventListener("install", (event) => {
@@ -22,10 +23,14 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys()
       .then((keys) => Promise.all(keys
-        .filter((key) => key !== CACHE_NAME)
+        .filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME)
         .map((key) => caches.delete(key))))
       .then(() => self.clients.claim())
   );
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
 });
 
 self.addEventListener("fetch", (event) => {
