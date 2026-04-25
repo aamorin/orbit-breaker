@@ -23,7 +23,7 @@ const DISTANCE_SCORE_SCALE = 0.12;
 const MIN_UPGRADE_SCORE = 260;
 const RECORD_KEY = "ob-best";
 const MUTED_KEY = "ob-muted";
-const VERSION = "0.1.4";
+const VERSION = "0.1.5";
 
 const LANES = [82, 153, 226, 306];
 
@@ -107,6 +107,7 @@ class OrbitBreaker extends Phaser.Scene {
     this.pulses = [];
     this.trail = [];
     this.currentPlanet = null;
+    this.captureIgnorePlanet = null;
     this.hasLaunchedOnce = false;
     this.nextSpawnY = START_PLANET_Y;
     this.lastLane = 1;
@@ -588,18 +589,17 @@ class OrbitBreaker extends Phaser.Scene {
 
   launchShip() {
     const tangent = this.getOrbitTangent();
-    if (tangent.y > -0.16) {
-      tangent.y = -0.42;
-      tangent.normalize();
-    }
+    const launchPlanet = this.currentPlanet;
+    if (!launchPlanet) return;
 
     this.mode = "free";
     this.hasLaunchedOnce = true;
     this.launchedAt = this.elapsed;
     this.freeVelocity.copy(tangent.scale(LAUNCH_SPEED));
     this.pointShipAlong(this.freeVelocity);
-    this.currentPlanet.depleted = true;
-    this.redrawPlanet(this.currentPlanet);
+    launchPlanet.depleted = true;
+    this.redrawPlanet(launchPlanet);
+    this.captureIgnorePlanet = launchPlanet;
     this.currentPlanet = null;
     this.updateChainText();
     this.addPulse(this.ship.x, this.ship.y, 30, 0x00e5ff);
@@ -663,6 +663,7 @@ class OrbitBreaker extends Phaser.Scene {
       this.ship.y += this.freeVelocity.y * dt;
       this.freeVelocity.y += 18 * dt;
       this.pointShipAlong(this.freeVelocity);
+      this.updateCaptureIgnore();
       this.checkCapture();
       this.checkMiss();
     }
@@ -691,25 +692,31 @@ class OrbitBreaker extends Phaser.Scene {
     const planet = this.findNearestPlanet(this.ship.x, this.ship.y, 999);
     if (!planet) return;
     const dist = Phaser.Math.Distance.Between(this.ship.x, this.ship.y, planet.x, planet.y);
-    if (dist <= planet.captureRadius && !planet.depleted) {
+    if (dist <= planet.captureRadius) {
       this.capturePlanet(planet, false);
     }
   }
 
   capturePlanet(planet, blinked) {
+    const freshCapture = !planet.depleted;
     const dx = this.ship.x - planet.x;
     const dy = this.ship.y - planet.y;
     this.orbitAngle = Math.atan2(dy, dx);
     this.orbitDir = Math.random() < 0.5 ? -1 : 1;
     this.mode = "orbit";
     this.currentPlanet = planet;
+    this.captureIgnorePlanet = null;
     planet.capturedAt = this.elapsed;
 
     const flightMs = Math.max(1, this.elapsed - this.launchedAt);
     const clean = !blinked && flightMs < 1500;
-    this.chain = clean ? this.chain + 1 : Math.max(1, this.chain);
-    const combo = this.hasUpgrade("combo_boost") ? 1.65 : 1;
-    this.bonusScore += Math.round(CLEAN_CAPTURE_BONUS * this.chain * combo);
+    if (freshCapture) {
+      this.chain = clean ? this.chain + 1 : Math.max(1, this.chain);
+      const combo = this.hasUpgrade("combo_boost") ? 1.65 : 1;
+      this.bonusScore += Math.round(CLEAN_CAPTURE_BONUS * this.chain * combo);
+    } else {
+      this.chain = 0;
+    }
     this.updateChainText();
 
     this.addPulse(planet.x, planet.y, planet.captureRadius, blinked ? 0x8dffca : 0xffdc4a);
@@ -733,11 +740,26 @@ class OrbitBreaker extends Phaser.Scene {
     return true;
   }
 
+  updateCaptureIgnore() {
+    const planet = this.captureIgnorePlanet;
+    if (!planet) return;
+
+    if (!this.planets.includes(planet)) {
+      this.captureIgnorePlanet = null;
+      return;
+    }
+
+    const dist = Phaser.Math.Distance.Between(this.ship.x, this.ship.y, planet.x, planet.y);
+    if (dist > planet.captureRadius + 10) {
+      this.captureIgnorePlanet = null;
+    }
+  }
+
   findNearestPlanet(x, y, maxRange) {
     let best = null;
     let bestDist = maxRange;
     for (const planet of this.planets) {
-      if (planet.depleted) continue;
+      if (planet === this.captureIgnorePlanet) continue;
       const d = Phaser.Math.Distance.Between(x, y, planet.x, planet.y);
       if (d < bestDist) {
         bestDist = d;

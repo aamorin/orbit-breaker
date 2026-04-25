@@ -1,4 +1,4 @@
-const CACHE_NAME = "orbit-breaker-20260425-5";
+const CACHE_NAME = "orbit-breaker-20260425-6";
 const APP_SHELL = [
   "./",
   "./index.html",
